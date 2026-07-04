@@ -1,0 +1,15 @@
+# Публичный сайт: админка сюда не проксируется вовсе (защита в дополнение к 404 в приложении)
+{$SITE_DOMAIN:normno.ru} {
+	encode zstd gzip
+
+	@admin path /admin /admin/*
+	respond @admin 404
+
+	reverse_proxy app:4321
+}
+
+# Отдельный поддомен для админки (Basic Auth проверяет само приложение)
+{$ADMIN_DOMAIN:admin.normno.ru} {
+	encode zstd gzip
+	reverse_proxy app:4321
+}

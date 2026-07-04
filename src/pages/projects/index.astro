@@ -1,0 +1,198 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getVisibleRepos, repoImage } from '../../lib/queries';
+import { formatCount } from '../../lib/format';
+
+const hard = getVisibleRepos('hard');
+const vibe = getVisibleRepos('vibe');
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+---
+
+<Base title="Проекты — NORMno" active="projects">
+  <main>
+    <div class="head">
+      <h1>Проекты</h1>
+      <div class="tabs glass" role="tablist">
+        <button id="tab-hard" class="tab active" role="tab" aria-selected="true" aria-controls="grid-hard" data-ripple>
+          Hard Code
+        </button>
+        <button id="tab-vibe" class="tab" role="tab" aria-selected="false" aria-controls="grid-vibe" data-ripple>
+          Vibe Code ✨
+        </button>
+      </div>
+    </div>
+
+    {
+      [
+        { id: 'hard', list: hard, hidden: false },
+        { id: 'vibe', list: vibe, hidden: true },
+      ].map(({ id, list, hidden }) => (
+        <div class="grid" id={`grid-${id}`} role="tabpanel" hidden={hidden}>
+          {list.length === 0 && <p class="empty">В этой категории пока нет проектов.</p>}
+          {list.map((p) => (
+            <a class="card" href={`/projects/${p.name}`} data-ripple>
+              <img class="shot" src={repoImage(p)} alt={`Скриншот проекта ${p.name}`} loading="lazy" />
+              <div class="card-info glass">
+                <div class="card-top">
+                  <strong>{p.name}</strong>
+                  <span class="card-stats">
+                    <span>★ {formatCount(p.stars)}</span>
+                    <span>↓ {formatCount(p.totalDownloads)}</span>
+                  </span>
+                </div>
+                <div class="card-desc">{p.description}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+      ))
+    }
+  </main>
+</Base>
+
+<script>
+  // Переключение вкладок Hard/Vibe без перезагрузки (списки уже в HTML).
+  const tabs = [
+    { btn: document.getElementById('tab-hard')!, panel: document.getElementById('grid-hard')! },
+    { btn: document.getElementById('tab-vibe')!, panel: document.getElementById('grid-vibe')! },
+  ];
+  for (const { btn } of tabs) {
+    btn.addEventListener('click', () => {
+      for (const t of tabs) {
+        const on = t.btn === btn;
+        t.btn.classList.toggle('active', on);
+        t.btn.setAttribute('aria-selected', String(on));
+        t.panel.hidden = !on;
+      }
+    });
+  }
+  if (location.hash === '#vibe') tabs[1].btn.click();
+</script>
+
+<style>
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: clamp(26px, 5.5vw, 48px) clamp(14px, 4vw, 24px) 80px;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(24px, 6vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 5px;
+    border-radius: 22px;
+    background: var(--glass-07);
+  }
+  .tab {
+    font: inherit;
+    color: inherit;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 8px clamp(12px, 3.5vw, 20px);
+    border-radius: 17px;
+    transition: background 0.3s;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .tab.active {
+    background: var(--active);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 22px;
+  }
+  .grid[hidden] {
+    display: none;
+  }
+  .empty {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--fg-55);
+  }
+  .card {
+    position: relative;
+    display: block;
+    border-radius: 26px;
+    aspect-ratio: 4 / 3.4;
+    overflow: hidden;
+    border: 1px solid var(--line-15);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.04);
+    transition:
+      transform 0.3s,
+      box-shadow 0.3s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.5);
+  }
+  .shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .card-info {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    border-radius: 18px;
+    padding: 14px 16px;
+    background: rgba(10, 12, 22, 0.55);
+    border: 1px solid var(--line-15);
+  }
+  .card-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .card-top strong {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--fg-65);
+    flex: none;
+    white-space: nowrap;
+  }
+  .card-desc {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--fg-65);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

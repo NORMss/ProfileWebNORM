@@ -1,0 +1,159 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Активный пункт навигации: home | projects | pubs | none */
+  active?: string;
+  /** Скрыть публичную навигацию (админка) */
+  hideNav?: boolean;
+}
+
+const {
+  title,
+  description = 'Портфолио NORMno: проекты на Kotlin Multiplatform, публикации и релизы.',
+  active = 'none',
+  hideNav = false,
+} = Astro.props;
+
+const nav = [
+  { href: '/', label: 'Главная', key: 'home' },
+  { href: '/projects', label: 'Проекты', key: 'projects' },
+  { href: '/publications', label: 'Публикации', key: 'pubs' },
+];
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="page">
+      <div class="blobs" aria-hidden="true">
+        <div class="blob blob-a" style="left:-8%;top:-12%;width:46vw;height:46vw;"></div>
+        <div class="blob blob-b" style="left:58%;top:4%;width:40vw;height:40vw;"></div>
+        <div class="blob blob-c" style="left:22%;top:55%;width:44vw;height:44vw;"></div>
+      </div>
+
+      {
+        !hideNav && (
+          <div class="nav-wrap">
+            <nav class="glass">
+              <a href="/" class="brand" data-ripple>
+                normno<span class="brand-tld">.ru</span>
+              </a>
+              {nav.map((item) => (
+                <a href={item.href} class:list={['nav-link', { active: active === item.key }]} data-ripple>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          </div>
+        )
+      }
+
+      <slot />
+    </div>
+
+    <script>
+      // Ripple-эффект (делегирование) — единственный глобальный JS на публичных страницах.
+      document.addEventListener('click', (e) => {
+        const target = (e.target as Element | null)?.closest?.('[data-ripple]') as HTMLElement | null;
+        if (!target) return;
+        const rect = target.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height) * 2;
+        const ink = document.createElement('span');
+        ink.className = 'ripple-ink';
+        ink.style.width = ink.style.height = `${size}px`;
+        ink.style.left = `${e.clientX - rect.left - size / 2}px`;
+        ink.style.top = `${e.clientY - rect.top - size / 2}px`;
+        target.appendChild(ink);
+        setTimeout(() => ink.remove(), 650);
+      });
+    </script>
+  </body>
+</html>
+
+<style define:vars={{}}>
+  .page {
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  .blobs {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .blob-a {
+    background: radial-gradient(circle, hsla(50, 80%, 60%, 0.32), transparent 70%);
+    animation: blobA 14s ease-in-out infinite;
+  }
+  .blob-b {
+    background: radial-gradient(circle, hsla(110, 80%, 60%, 0.32), transparent 70%);
+    animation: blobB 14s ease-in-out infinite;
+  }
+  .blob-c {
+    background: radial-gradient(circle, hsla(-5, 80%, 60%, 0.32), transparent 70%);
+    animation: blobA 14s ease-in-out infinite;
+  }
+
+  .nav-wrap {
+    position: sticky;
+    top: 10px;
+    z-index: 50;
+    display: flex;
+    justify-content: center;
+    padding: 0 12px;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: 28px;
+    background: var(--glass-07);
+    border: 1px solid var(--line-14);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 15px;
+    padding: 8px clamp(9px, 2.6vw, 16px);
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .brand-tld {
+    opacity: 0.5;
+  }
+  .nav-link {
+    font-size: clamp(12.5px, 3.3vw, 14px);
+    white-space: nowrap;
+    padding: 8px clamp(9px, 2.6vw, 16px);
+    border-radius: 20px;
+    text-decoration: none;
+    transition: background 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .nav-link:hover {
+    background: var(--glass-08);
+  }
+  .nav-link.active {
+    background: var(--active);
+  }
+</style>

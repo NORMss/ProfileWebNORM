@@ -1,0 +1,271 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getRepoByName, getReleases, getAssets, getIssues } from '../../lib/queries';
+import { formatCount, formatDate } from '../../lib/format';
+
+const { name = '' } = Astro.params;
+const repo = getRepoByName(name);
+if (!repo) {
+  return new Response(null, { status: 404, statusText: 'Not found' });
+}
+
+const releases = getReleases(repo.id).map((r) => ({ ...r, assets: getAssets(r.id) }));
+const issues = getIssues(repo.id);
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+---
+
+<Base title={`${repo.name} — проекты NORMno`} description={repo.description} active="projects">
+  <main>
+    <a class="back glass" href="/projects" data-ripple>‹ Все проекты</a>
+
+    <section class="glass card-main">
+      <div class="top">
+        <div>
+          <h1>{repo.name}</h1>
+          <div class="meta">
+            <span>★ {formatCount(repo.stars)} звёзд</span>
+            <span>↓ {formatCount(repo.totalDownloads)} загрузок</span>
+            {repo.latestTag && <span class="tag">{repo.latestTag}</span>}
+          </div>
+        </div>
+        {
+          repo.latestAssetUrl ? (
+            <a class="btn-accent" href={repo.latestAssetUrl} data-ripple>
+              ⤓ Скачать последнюю версию
+            </a>
+          ) : (
+            <a class="btn-ghost" href={repo.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
+              Открыть на GitHub ↗
+            </a>
+          )
+        }
+      </div>
+
+      {repo.readmeHtml && <h2 class="readme-head">README.md</h2>}
+      {repo.readmeHtml && <div class="md-body" set:html={repo.readmeHtml} />}
+    </section>
+
+    <section class="glass card-list">
+      <h2>Релизы</h2>
+      {releases.length === 0 && <p class="empty">Релизов пока нет.</p>}
+      <div class="rows">
+        {
+          releases.map((r) => (
+            <div class="row glass-item">
+              <span class="row-tag">{r.tag}</span>
+              <span class="row-notes">{r.name || r.notes}</span>
+              <span class="row-date">{formatDate(r.publishedAt)}</span>
+              <span class="row-dl">↓ {formatCount(r.downloads)}</span>
+              {r.assets.length > 0 ? (
+                <a class="row-btn" href={r.assets[0].downloadUrl} data-ripple>
+                  Скачать
+                </a>
+              ) : (
+                <a class="row-btn" href={r.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
+                  Открыть
+                </a>
+              )}
+              {r.assets.length > 1 && (
+                <details class="assets">
+                  <summary>{r.assets.length} файлов</summary>
+                  <ul>
+                    {r.assets.map((a) => (
+                      <li>
+                        <a href={a.downloadUrl}>{a.name}</a>
+                        <span class="asset-dl">↓ {formatCount(a.downloadCount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="glass card-list">
+      <h2>Открытые issues</h2>
+      {issues.length === 0 && <p class="empty">Открытых issues нет 🎉</p>}
+      <div class="rows">
+        {
+          issues.map((i) => (
+            <a class="row glass-item issue" href={i.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
+              <span class="issue-num">#{i.number}</span>
+              <span class="row-notes">{i.title}</span>
+              <span class="row-date">{formatDate(i.createdAt)}</span>
+              {i.comments > 0 && <span class="row-dl">💬 {i.comments}</span>}
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </main>
+</Base>
+
+<style>
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: clamp(24px, 5vw, 44px) clamp(14px, 4vw, 24px) 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .back {
+    align-self: flex-start;
+    font-size: 14px;
+    padding: 8px 18px;
+    border-radius: 18px;
+    text-decoration: none;
+    background: var(--glass-07);
+  }
+  .card-main {
+    border-radius: 30px;
+    padding: clamp(20px, 4.5vw, 36px);
+    box-shadow: var(--shadow-lg);
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: clamp(24px, 6vw, 30px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13.5px;
+    color: var(--fg-60);
+  }
+  .tag {
+    color: var(--green);
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  .btn-accent {
+    font-size: clamp(13.5px, 3.8vw, 15px);
+    white-space: nowrap;
+    flex: none;
+    padding: 13px clamp(16px, 4vw, 26px);
+    border-radius: 20px;
+  }
+  .readme-head {
+    margin: 26px 0 10px;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .card-list {
+    border-radius: 28px;
+    padding: clamp(16px, 4vw, 28px);
+    background: var(--glass-05);
+  }
+  .card-list h2 {
+    margin: 0 0 16px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .empty {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fg-55);
+  }
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    padding: 13px 18px;
+    border-radius: 18px;
+    text-decoration: none;
+  }
+  .row-tag {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    color: var(--green);
+    flex: none;
+    min-width: 64px;
+  }
+  .row-notes {
+    flex: 1;
+    min-width: min(220px, 100%);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .row-date {
+    font-size: 12.5px;
+    color: var(--fg-50);
+    flex: none;
+    white-space: nowrap;
+  }
+  .row-dl {
+    font-size: 12.5px;
+    color: var(--fg-60);
+    flex: none;
+    white-space: nowrap;
+  }
+  .row-btn {
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 7px 14px;
+    border-radius: 14px;
+    background: var(--glass-08);
+    border: 1px solid var(--line-15);
+    flex: none;
+    text-decoration: none;
+    transition: background 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .row-btn:hover {
+    background: var(--glass-10);
+  }
+  .assets {
+    width: 100%;
+    font-size: 13px;
+  }
+  .assets summary {
+    cursor: pointer;
+    color: var(--fg-55);
+  }
+  .assets ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .assets a {
+    color: #b8caff;
+  }
+  .asset-dl {
+    margin-left: 8px;
+    color: var(--fg-50);
+    font-size: 12px;
+  }
+  .issue:hover {
+    background: var(--glass-08);
+  }
+  .issue-num {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    color: var(--fg-55);
+    flex: none;
+    min-width: 44px;
+  }
+</style>

@@ -1,0 +1,86 @@
+---
+import Base from '../../layouts/Base.astro';
+import AdminApp from '../../components/admin/AdminApp.svelte';
+import { getAllRepos, getAllPosts } from '../../lib/queries';
+import { getAbout, getSetting } from '../../lib/settings';
+import { config } from '../../lib/config';
+
+const repos = getAllRepos().map((r) => ({
+  id: r.id,
+  name: r.name,
+  description: r.description,
+  category: r.category,
+  visible: r.visible,
+}));
+const posts = getAllPosts().map((p) => ({
+  id: p.id,
+  title: p.title,
+  bodyMd: p.bodyMd,
+  source: p.source,
+  status: p.status,
+  createdAt: p.createdAt,
+}));
+const about = getAbout();
+const lastSync = getSetting('last_sync');
+let tgLastImport: { at: string; count: number } | null = null;
+try {
+  tgLastImport = JSON.parse(getSetting('tg_last_import') || 'null');
+} catch {
+  tgLastImport = null;
+}
+
+Astro.response.headers.set('Cache-Control', 'no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+
+<Base title="Admin панель — normno.ru" hideNav>
+  <main>
+    <div class="head">
+      <h1>Admin панель</h1>
+      <span class="private">PRIVATE</span>
+      <a class="to-site" href={config.siteUrl} target="_blank" rel="noopener">открыть сайт ↗</a>
+    </div>
+    <AdminApp client:only="svelte" {repos} {posts} {about} {lastSync} {tgLastImport} />
+  </main>
+</Base>
+
+<style>
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: clamp(24px, 5vw, 44px) clamp(14px, 4vw, 24px) 80px;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(22px, 5.5vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .private {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: rgba(230, 160, 60, 0.22);
+    color: #ecc07a;
+    border: 1px solid rgba(214, 150, 60, 0.45);
+  }
+  .to-site {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--fg-55);
+    text-decoration: none;
+  }
+  .to-site:hover {
+    color: var(--fg);
+  }
+</style>

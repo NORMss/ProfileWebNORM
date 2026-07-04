@@ -1,0 +1,296 @@
+---
+import Base from '../layouts/Base.astro';
+import SpotifyWidget from '../components/SpotifyWidget.svelte';
+import { getAbout } from '../lib/settings';
+import { getLatestUpdates, repoImage } from '../lib/queries';
+import { formatCount } from '../lib/format';
+import { getNowPlaying } from '../lib/spotify';
+
+const about = getAbout();
+const updates = getLatestUpdates(5);
+const nowPlaying = await getNowPlaying();
+
+const links = [
+  { key: 'tg', label: 'Telegram', short: 'TG', href: about.telegram, cls: 'link-tg' },
+  { key: 'yt', label: 'YouTube', short: 'YT', href: about.youtube, cls: 'link-yt' },
+  { key: 'gh', label: 'GitHub', short: 'GH', href: about.github, cls: 'link-gh' },
+].filter((l) => l.href);
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=60');
+---
+
+<Base title="NORMno — портфолио и проекты на KMP" active="home">
+  <main>
+    <section class="hero glass">
+      <div class="hero-row">
+        <img class="avatar" src="/avatar.svg" alt="Фото NORMno" width="104" height="104" />
+        <div class="hero-text">
+          <h1>Всем, привет 👋</h1>
+          <p>{about.text.replace(/^Всем, привет\s*👋?,?\s*/u, '')}</p>
+        </div>
+        <div class="links">
+          {
+            links.map((l) => (
+              <a class:list={['social', l.cls]} href={l.href} target="_blank" rel="noopener noreferrer" data-ripple>
+                <span class="social-badge">{l.short}</span>
+                {l.label}
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <div class="columns">
+      <section class="updates glass">
+        <h2>Последние обновления <span class="sub">releases · GitHub</span></h2>
+        <div class="update-list">
+          {
+            updates.length === 0 && (
+              <p class="empty">Пока пусто — релизы появятся после первого синка с GitHub.</p>
+            )
+          }
+          {
+            updates.map((u) => (
+              <a class="update glass-item" href={`/projects/${u.repo.name}`} data-ripple>
+                <img class="thumb" src={repoImage(u.repo)} alt="" width="52" height="52" loading="lazy" />
+                <div class="update-meta">
+                  <div class="update-title">
+                    <strong>{u.repo.name}</strong>
+                    <span class="tag">{u.tag}</span>
+                  </div>
+                  <div class="update-desc">{u.name || u.notes || u.repo.description}</div>
+                </div>
+                <div class="stats">
+                  <span>★ {formatCount(u.repo.stars)}</span>
+                  <span>↓ {formatCount(u.repo.totalDownloads)}</span>
+                </div>
+                <span class="chevron">›</span>
+              </a>
+            ))
+          }
+        </div>
+      </section>
+
+      <SpotifyWidget client:load initial={nowPlaying} />
+    </div>
+  </main>
+</Base>
+
+<style>
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: clamp(28px, 6vw, 56px) clamp(14px, 4vw, 24px) 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .hero {
+    border-radius: 32px;
+    padding: clamp(22px, 5vw, 44px);
+    background: var(--glass-06);
+    box-shadow:
+      var(--shadow-lg),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  .hero-row {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .avatar {
+    width: clamp(84px, 20vw, 104px);
+    height: clamp(84px, 20vw, 104px);
+    border-radius: 50%;
+    flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .hero-text {
+    flex: 1;
+    min-width: min(280px, 100%);
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-size: clamp(26px, 6.5vw, 34px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .hero-text p {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.78);
+    max-width: 560px;
+    text-wrap: pretty;
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1 1 220px;
+    min-width: min(220px, 100%);
+    max-width: 340px;
+  }
+  .social {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 18px 11px 12px;
+    border-radius: 18px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: background 0.25s;
+  }
+  .social-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .link-tg {
+    background: rgba(42, 151, 225, 0.16);
+    border: 1px solid rgba(90, 170, 230, 0.35);
+  }
+  .link-tg:hover {
+    background: rgba(42, 151, 225, 0.28);
+  }
+  .link-tg .social-badge {
+    background: rgba(42, 151, 225, 0.9);
+  }
+  .link-yt {
+    background: rgba(230, 60, 60, 0.14);
+    border: 1px solid rgba(235, 100, 100, 0.35);
+  }
+  .link-yt:hover {
+    background: rgba(230, 60, 60, 0.26);
+  }
+  .link-yt .social-badge {
+    background: rgba(220, 50, 50, 0.9);
+  }
+  .link-gh {
+    background: var(--glass-08);
+    border: 1px solid var(--line-18);
+  }
+  .link-gh:hover {
+    background: var(--glass-10);
+  }
+  .link-gh .social-badge {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(16px, 3vw, 28px);
+    align-items: flex-start;
+  }
+  .updates {
+    flex: 999 1 420px;
+    min-width: min(420px, 100%);
+    border-radius: 28px;
+    padding: clamp(18px, 4vw, 28px);
+    background: var(--glass-05);
+    box-shadow: var(--shadow-md);
+  }
+  h2 {
+    margin: 0 0 18px;
+    font-size: 19px;
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .sub {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-50);
+  }
+  .update-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .empty {
+    margin: 0;
+    font-size: 14px;
+    color: var(--fg-55);
+  }
+  .update {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    transition: background 0.25s;
+  }
+  .update:hover {
+    background: var(--glass-08);
+  }
+  .thumb {
+    width: 52px;
+    height: 52px;
+    flex: none;
+    border-radius: 14px;
+    object-fit: cover;
+    border: 1px solid var(--line-14);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .update-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .update-title {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    overflow: hidden;
+  }
+  .update-title strong {
+    font-size: 14.5px;
+    white-space: nowrap;
+  }
+  .tag {
+    font-size: 12px;
+    color: var(--green);
+    font-family: ui-monospace, Menlo, monospace;
+    white-space: nowrap;
+  }
+  .update-desc {
+    font-size: 13px;
+    color: var(--fg-60);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .stats {
+    display: flex;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--fg-60);
+    flex: none;
+    white-space: nowrap;
+  }
+  .chevron {
+    color: var(--fg-45);
+    font-size: 16px;
+  }
+  @media (max-width: 560px) {
+    .stats {
+      display: none;
+    }
+  }
+</style>
