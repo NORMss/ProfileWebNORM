@@ -81,8 +81,8 @@
     min-width: min(280px, 100%);
     border-radius: 28px;
     padding: clamp(18px, 4vw, 24px);
-    background: linear-gradient(145deg, rgba(30, 215, 96, 0.13), rgba(255, 255, 255, 0.05));
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: linear-gradient(145deg, var(--spotify-tint), var(--glass-05));
+    border: 1px solid var(--line-14);
     backdrop-filter: blur(24px) saturate(1.4);
     -webkit-backdrop-filter: blur(24px) saturate(1.4);
     box-shadow: var(--shadow-md);
@@ -98,7 +98,7 @@
     height: 22px;
     border-radius: 50%;
     background: var(--spotify);
-    color: #07080f;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -137,7 +137,7 @@
     flex: none;
     border-radius: 16px;
     object-fit: cover;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid var(--line-14);
   }
   .cover-empty {
     display: flex;
@@ -146,7 +146,7 @@
     font-family: ui-monospace, Menlo, monospace;
     font-size: 9px;
     color: var(--fg-55);
-    background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.09) 0 7px, rgba(255, 255, 255, 0.03) 7px 14px);
+    background: repeating-linear-gradient(45deg, var(--glass-08) 0 7px, var(--glass-05) 7px 14px);
   }
   .meta {
     min-width: 0;
@@ -169,7 +169,7 @@
     margin-top: 10px;
     height: 4px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--line-15);
     width: 100%;
     max-width: 170px;
   }

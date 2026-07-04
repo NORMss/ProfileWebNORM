@@ -2,7 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import AdminApp from '../../components/admin/AdminApp.svelte';
 import { getAllRepos, getAllPosts } from '../../lib/queries';
-import { getAbout, getSetting } from '../../lib/settings';
+import { getAbout, getAvatarUrl, getSetting } from '../../lib/settings';
 import { config } from '../../lib/config';
 
 const repos = getAllRepos().map((r) => ({
@@ -21,6 +21,7 @@ const posts = getAllPosts().map((p) => ({
   createdAt: p.createdAt,
 }));
 const about = getAbout();
+const avatarUrl = getAvatarUrl();
 const lastSync = getSetting('last_sync');
 let tgLastImport: { at: string; count: number } | null = null;
 try {
@@ -40,7 +41,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
       <span class="private">PRIVATE</span>
       <a class="to-site" href={config.siteUrl} target="_blank" rel="noopener">открыть сайт ↗</a>
     </div>
-    <AdminApp client:only="svelte" {repos} {posts} {about} {lastSync} {tgLastImport} />
+    <AdminApp client:only="svelte" {repos} {posts} {about} {avatarUrl} {lastSync} {tgLastImport} />
   </main>
 </Base>
 

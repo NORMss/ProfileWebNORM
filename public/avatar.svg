@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104">
   <defs>
     <pattern id="hatch" width="16" height="16" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-      <rect width="16" height="16" fill="rgba(255,255,255,0.04)"/>
-      <rect width="8" height="16" fill="rgba(255,255,255,0.10)"/>
+      <rect width="16" height="16" fill="rgba(128,118,108,0.10)"/>
+      <rect width="8" height="16" fill="rgba(128,118,108,0.22)"/>
     </pattern>
   </defs>
-  <circle cx="52" cy="52" r="51" fill="url(#hatch)" stroke="rgba(255,255,255,0.2)"/>
-  <text x="52" y="57" font-family="ui-monospace,Menlo,monospace" font-size="11" text-anchor="middle" fill="rgba(255,255,255,0.55)">фото</text>
+  <circle cx="52" cy="52" r="51" fill="url(#hatch)" stroke="rgba(128,118,108,0.45)"/>
+  <text x="52" y="57" font-family="ui-monospace,Menlo,monospace" font-size="11" text-anchor="middle" fill="rgba(128,118,108,0.9)">фото</text>
 </svg>

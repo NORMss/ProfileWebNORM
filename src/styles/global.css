@@ -1,4 +1,6 @@
-/* normno.ru — тёмная liquid-glass тема по макету Portfolio (dark) */
+/* normno.ru — liquid-glass тема.
+   Тёмная палитра — по макету Portfolio (dark), светлая — по Portfolio.dc.html.
+   Переключение автоматическое через prefers-color-scheme. */
 :root {
   --bg: #07080f;
   --fg: #f2f3f8;
@@ -7,6 +9,7 @@
   --fg-55: rgba(255, 255, 255, 0.55);
   --fg-50: rgba(255, 255, 255, 0.5);
   --fg-45: rgba(255, 255, 255, 0.45);
+  --text-body: rgba(255, 255, 255, 0.78);
   --glass-05: rgba(255, 255, 255, 0.05);
   --glass-06: rgba(255, 255, 255, 0.06);
   --glass-07: rgba(255, 255, 255, 0.07);
@@ -21,11 +24,89 @@
   --active: rgba(255, 255, 255, 0.16);
   --green: #8be28f;
   --spotify: #1ed760;
+  --spotify-tint: rgba(30, 215, 96, 0.13);
   --accent-grad: linear-gradient(135deg, #9db7ff, #e2e9ff);
   --on-accent: #07080f;
+  --accent-shadow: 0 10px 30px rgba(157, 183, 255, 0.25);
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.3);
-  --accent-hue: 50;
+  --ripple: rgba(255, 255, 255, 0.3);
+  --selection: rgba(120, 140, 255, 0.4);
+  --card-overlay: rgba(10, 12, 22, 0.55);
+  --inset-top: rgba(255, 255, 255, 0.12);
+  --link: #b8caff;
+  --link-underline: rgba(184, 202, 255, 0.4);
+  --pre-bg: rgba(0, 0, 0, 0.35);
+  --code-bg: rgba(255, 255, 255, 0.08);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --badge-admin-bg: rgba(157, 183, 255, 0.18);
+  --badge-admin-fg: #b8caff;
+  --badge-tg-bg: rgba(42, 151, 225, 0.22);
+  --badge-tg-fg: #7cc0ef;
+  --tint-tg-bg: rgba(42, 151, 225, 0.16);
+  --tint-tg-line: rgba(90, 170, 230, 0.35);
+  --tint-yt-bg: rgba(230, 60, 60, 0.14);
+  --tint-yt-line: rgba(235, 100, 100, 0.35);
+  --tint-gh-bg: rgba(255, 255, 255, 0.08);
+  --tint-gh-line: rgba(255, 255, 255, 0.18);
+  --blob-a: radial-gradient(circle, hsla(50, 80%, 60%, 0.32), transparent 70%);
+  --blob-b: radial-gradient(circle, hsla(110, 80%, 60%, 0.32), transparent 70%);
+  --blob-c: radial-gradient(circle, hsla(-5, 80%, 60%, 0.32), transparent 70%);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f2ead9;
+    --fg: #3a3226;
+    --fg-65: rgba(58, 50, 38, 0.82);
+    --fg-60: rgba(80, 66, 46, 0.8);
+    --fg-55: rgba(80, 66, 46, 0.75);
+    --fg-50: rgba(94, 78, 54, 0.7);
+    --fg-45: rgba(94, 78, 54, 0.6);
+    --text-body: rgba(58, 50, 38, 0.78);
+    --glass-05: rgba(255, 252, 244, 0.5);
+    --glass-06: rgba(255, 252, 244, 0.55);
+    --glass-07: rgba(255, 252, 244, 0.6);
+    --glass-08: rgba(255, 255, 255, 0.65);
+    --glass-10: rgba(255, 255, 255, 0.85);
+    --line-10: rgba(150, 118, 76, 0.18);
+    --line-12: rgba(150, 118, 76, 0.2);
+    --line-13: rgba(150, 118, 76, 0.22);
+    --line-14: rgba(150, 118, 76, 0.25);
+    --line-15: rgba(150, 118, 76, 0.28);
+    --line-18: rgba(150, 118, 76, 0.32);
+    --active: rgba(200, 160, 100, 0.35);
+    --green: #2e7a42;
+    --spotify: #2f9e50;
+    --spotify-tint: rgba(140, 200, 150, 0.4);
+    --accent-grad: linear-gradient(135deg, #c98f52, #dfae6e);
+    --on-accent: #fff;
+    --accent-shadow: 0 10px 30px rgba(201, 143, 82, 0.45);
+    --shadow-lg: 0 20px 60px rgba(120, 90, 50, 0.18);
+    --shadow-md: 0 12px 40px rgba(120, 90, 50, 0.14);
+    --ripple: rgba(160, 120, 60, 0.3);
+    --selection: rgba(216, 170, 100, 0.45);
+    --card-overlay: rgba(255, 250, 242, 0.78);
+    --inset-top: rgba(255, 255, 255, 0.8);
+    --link: #7a5520;
+    --link-underline: rgba(122, 85, 32, 0.4);
+    --pre-bg: rgba(120, 95, 60, 0.1);
+    --code-bg: rgba(120, 95, 60, 0.14);
+    --input-bg: rgba(255, 255, 255, 0.6);
+    --badge-admin-bg: rgba(180, 140, 80, 0.28);
+    --badge-admin-fg: #6e4f24;
+    --badge-tg-bg: rgba(120, 170, 215, 0.4);
+    --badge-tg-fg: #2b5b80;
+    --tint-tg-bg: rgba(150, 196, 235, 0.4);
+    --tint-tg-line: rgba(110, 160, 205, 0.5);
+    --tint-yt-bg: rgba(240, 170, 155, 0.4);
+    --tint-yt-line: rgba(210, 120, 100, 0.5);
+    --tint-gh-bg: rgba(214, 198, 168, 0.45);
+    --tint-gh-line: rgba(150, 118, 76, 0.35);
+    --blob-a: radial-gradient(circle, hsla(50, 65%, 78%, 0.6), transparent 70%);
+    --blob-b: radial-gradient(circle, hsla(110, 65%, 78%, 0.6), transparent 70%);
+    --blob-c: radial-gradient(circle, hsla(-5, 65%, 78%, 0.6), transparent 70%);
+  }
 }
 
 * {
@@ -34,6 +115,12 @@
 
 html {
   color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  html {
+    color-scheme: light;
+  }
 }
 
 body {
@@ -46,7 +133,7 @@ body {
 }
 
 ::selection {
-  background: rgba(120, 140, 255, 0.4);
+  background: var(--selection);
 }
 
 a {
@@ -86,6 +173,24 @@ a {
     transform: scaleY(1);
   }
 }
+/* Пасхалка: моргание фирменного смайла в навигации */
+@keyframes smileBlink {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  15%,
+  45% {
+    transform: scaleY(0.08);
+  }
+  30%,
+  60% {
+    transform: scaleY(1);
+  }
+  75% {
+    transform: scaleY(0.08);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .blob,
@@ -119,7 +224,7 @@ a {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--ripple);
   transform: scale(0);
   animation: dcRipple 0.6s ease-out forwards;
 }
@@ -145,7 +250,7 @@ a {
   border-radius: 18px;
   padding: 12px 24px;
   text-decoration: none;
-  box-shadow: 0 10px 30px rgba(157, 183, 255, 0.25);
+  box-shadow: var(--accent-shadow);
 }
 
 .btn-ghost {
@@ -167,11 +272,11 @@ a {
   background: var(--glass-10);
 }
 
-/* Контент, отрендеренный из markdown (README, публикации) */
+/* Контент, отрендеренный из markdown (README, публикации, «обо мне») */
 .md-body {
   font-size: 15px;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--text-body);
   overflow-wrap: break-word;
 }
 .md-body h1,
@@ -187,15 +292,15 @@ a {
   margin-top: 0;
 }
 .md-body a {
-  color: #b8caff;
-  text-decoration-color: rgba(184, 202, 255, 0.4);
+  color: var(--link);
+  text-decoration-color: var(--link-underline);
 }
 .md-body img {
   max-width: 100%;
   border-radius: 14px;
 }
 .md-body pre {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--pre-bg);
   border: 1px solid var(--line-10);
   border-radius: 14px;
   padding: 14px 16px;
@@ -205,7 +310,7 @@ a {
 .md-body code {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 0.92em;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--code-bg);
   border-radius: 6px;
   padding: 1px 5px;
 }
@@ -233,4 +338,21 @@ a {
 .md-body hr {
   border: none;
   border-top: 1px solid var(--line-12);
+}
+
+/* Бейджи источника публикаций */
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 10px;
+}
+.badge-admin {
+  background: var(--badge-admin-bg);
+  color: var(--badge-admin-fg);
+}
+.badge-tg {
+  background: var(--badge-tg-bg);
+  color: var(--badge-tg-fg);
 }

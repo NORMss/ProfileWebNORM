@@ -28,7 +28,14 @@ export const onRequest = defineMiddleware((context, next) => {
   }
 
   if (isAdminHost) {
-    if (path.startsWith('/_astro/') || path.startsWith('/api/') || path === '/favicon.svg' || path === '/robots.txt') {
+    if (
+      path.startsWith('/_astro/') ||
+      path.startsWith('/api/') ||
+      path.startsWith('/media/') ||
+      path === '/favicon.svg' ||
+      path === '/avatar.svg' ||
+      path === '/robots.txt'
+    ) {
       return next();
     }
     return context.redirect('/admin', 302);

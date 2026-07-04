@@ -74,7 +74,7 @@ CREATE INDEX IF NOT EXISTS idx_posts_date ON posts(created_at DESC);
 
 const DEFAULT_SETTINGS: Record<string, string> = {
   about_text:
-    'Всем, привет 👋 Горю разработкой приложений на разные платформы с помощью KMP. На этом сайте можно найти проекты, созданные мной и с помощью LLM/агентов.',
+    '# Всем, привет 👋\n\nГорю разработкой приложений на разные платформы с помощью KMP. На этом сайте можно найти проекты, созданные мной и с помощью LLM/агентов.',
   link_telegram: 'https://t.me/normno',
   link_youtube: 'https://youtube.com/@normno',
   link_github: 'https://github.com/NORMss',

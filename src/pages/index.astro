@@ -1,12 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
 import SpotifyWidget from '../components/SpotifyWidget.svelte';
-import { getAbout } from '../lib/settings';
+import { getAbout, getAboutHtml, getAvatarUrl } from '../lib/settings';
 import { getLatestUpdates, repoImage } from '../lib/queries';
 import { formatCount } from '../lib/format';
 import { getNowPlaying } from '../lib/spotify';
 
 const about = getAbout();
+const aboutHtml = getAboutHtml();
+const avatarUrl = getAvatarUrl();
 const updates = getLatestUpdates(5);
 const nowPlaying = await getNowPlaying();
 
@@ -23,11 +25,8 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   <main>
     <section class="hero glass">
       <div class="hero-row">
-        <img class="avatar" src="/avatar.svg" alt="Фото NORMno" width="104" height="104" />
-        <div class="hero-text">
-          <h1>Всем, привет 👋</h1>
-          <p>{about.text.replace(/^Всем, привет\s*👋?,?\s*/u, '')}</p>
-        </div>
+        <img class="avatar" src={avatarUrl} alt="Фото NORMno" width="104" height="104" />
+        <div class="hero-text md-body" set:html={aboutHtml} />
         <div class="links">
           {
             links.map((l) => (
@@ -94,7 +93,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     background: var(--glass-06);
     box-shadow:
       var(--shadow-lg),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      inset 0 1px 0 var(--inset-top);
   }
   .hero-row {
     display: flex;
@@ -107,26 +106,30 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     height: clamp(84px, 20vw, 104px);
     border-radius: 50%;
     flex: none;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line-18);
+    background: var(--glass-06);
+    object-fit: cover;
   }
   .hero-text {
     flex: 1;
     min-width: min(280px, 100%);
+    font-size: 17px;
+    line-height: 1.55;
+    max-width: 560px;
+    text-wrap: pretty;
   }
-  h1 {
+  .hero-text :global(h1) {
     margin: 0 0 10px;
     font-size: clamp(26px, 6.5vw, 34px);
     font-weight: 800;
     letter-spacing: -0.5px;
+    line-height: 1.2;
   }
-  .hero-text p {
-    margin: 0;
-    font-size: 17px;
-    line-height: 1.55;
-    color: rgba(255, 255, 255, 0.78);
-    max-width: 560px;
-    text-wrap: pretty;
+  .hero-text :global(p) {
+    margin: 0 0 8px;
+  }
+  .hero-text :global(p:last-child) {
+    margin-bottom: 0;
   }
   .links {
     display: flex;
@@ -161,34 +164,34 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     font-weight: 800;
   }
   .link-tg {
-    background: rgba(42, 151, 225, 0.16);
-    border: 1px solid rgba(90, 170, 230, 0.35);
+    background: var(--tint-tg-bg);
+    border: 1px solid var(--tint-tg-line);
   }
   .link-tg:hover {
-    background: rgba(42, 151, 225, 0.28);
+    filter: brightness(1.12);
   }
   .link-tg .social-badge {
     background: rgba(42, 151, 225, 0.9);
   }
   .link-yt {
-    background: rgba(230, 60, 60, 0.14);
-    border: 1px solid rgba(235, 100, 100, 0.35);
+    background: var(--tint-yt-bg);
+    border: 1px solid var(--tint-yt-line);
   }
   .link-yt:hover {
-    background: rgba(230, 60, 60, 0.26);
+    filter: brightness(1.12);
   }
   .link-yt .social-badge {
     background: rgba(220, 50, 50, 0.9);
   }
   .link-gh {
-    background: var(--glass-08);
-    border: 1px solid var(--line-18);
+    background: var(--tint-gh-bg);
+    border: 1px solid var(--tint-gh-line);
   }
   .link-gh:hover {
-    background: var(--glass-10);
+    filter: brightness(1.12);
   }
   .link-gh .social-badge {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(130, 110, 90, 0.7);
   }
 
   .columns {
@@ -247,7 +250,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     border-radius: 14px;
     object-fit: cover;
     border: 1px solid var(--line-14);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--glass-05);
   }
   .update-meta {
     flex: 1;

@@ -25,12 +25,14 @@
     repos: initialRepos,
     posts: initialPosts,
     about: initialAbout,
+    avatarUrl: initialAvatarUrl,
     lastSync,
     tgLastImport,
   } = $props<{
     repos: RepoRow[];
     posts: PostRow[];
     about: About;
+    avatarUrl: string;
     lastSync: string;
     tgLastImport: { at: string; count: number } | null;
   }>();
@@ -39,6 +41,11 @@
   let repos = $state<RepoRow[]>(initialRepos);
   let posts = $state<PostRow[]>(initialPosts);
   let about = $state<About>({ ...initialAbout });
+  let avatarUrl = $state(initialAvatarUrl);
+  let avatarFile = $state<FileList | null>(null);
+  let uploadingAvatar = $state(false);
+  let aboutPreviewHtml = $state('');
+  let showAboutPreview = $state(false);
   let toast = $state('');
   let syncing = $state(false);
   let importing = $state(false);
@@ -109,6 +116,51 @@
     try {
       await api('/admin/api/about', 'POST', about);
       say('Сохранено');
+    } catch (e) {
+      say(`Ошибка: ${e}`);
+    }
+  }
+
+  async function toggleAboutPreview() {
+    showAboutPreview = !showAboutPreview;
+    if (showAboutPreview) {
+      try {
+        const r = await api('/admin/api/preview', 'POST', { md: about.text });
+        aboutPreviewHtml = String(r.html ?? '');
+      } catch {
+        /* превью не критично */
+      }
+    }
+  }
+
+  async function uploadAvatar() {
+    const file = avatarFile?.[0];
+    if (!file) {
+      say('Выберите файл (PNG, JPEG или WebP)');
+      return;
+    }
+    uploadingAvatar = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/admin/api/avatar', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok === false) throw new Error(String(data.error ?? `HTTP ${res.status}`));
+      avatarUrl = String(data.url);
+      say('Фото обновлено');
+    } catch (e) {
+      say(`Ошибка загрузки: ${e}`);
+    } finally {
+      uploadingAvatar = false;
+    }
+  }
+
+  async function deleteAvatar() {
+    if (!confirm('Вернуть плейсхолдер вместо фото?')) return;
+    try {
+      await api('/admin/api/avatar', 'DELETE');
+      avatarUrl = '/avatar.svg';
+      say('Фото сброшено');
     } catch (e) {
       say(`Ошибка: ${e}`);
     }
@@ -264,9 +316,34 @@
   </section>
 {:else if tab === 'about'}
   <section class="panel about">
+    <div class="avatar-block">
+      <img class="avatar-preview" src={avatarUrl} alt="Текущее фото" width="88" height="88" />
+      <div class="avatar-controls">
+        <label for="avatar-file">Фото на главной (PNG, JPEG или WebP, до 3 МБ)</label>
+        <input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" bind:files={avatarFile} />
+        <div class="avatar-actions">
+          <button class="btn" onclick={uploadAvatar} disabled={uploadingAvatar}>
+            {uploadingAvatar ? 'Загрузка…' : '⤒ Загрузить фото'}
+          </button>
+          {#if avatarUrl !== '/avatar.svg'}
+            <button class="btn" onclick={deleteAvatar}>Сбросить</button>
+          {/if}
+        </div>
+      </div>
+    </div>
     <div>
-      <label for="about-text">Текст «обо мне» на главной</label>
-      <textarea id="about-text" rows="3" bind:value={about.text}></textarea>
+      <label for="about-text">Текст «обо мне» на главной · Markdown</label>
+      <textarea id="about-text" rows="6" bind:value={about.text} placeholder={'# Всем, привет 👋\n\nПару слов о себе…'}
+      ></textarea>
+      <button class="btn btn-sm" onclick={toggleAboutPreview}>
+        {showAboutPreview ? 'Скрыть превью' : 'Превью'}
+      </button>
+      {#if showAboutPreview}
+        <div class="preview md-body">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags — HTML прошёл sanitize-html на сервере -->
+          {@html aboutPreviewHtml || '<p>Пусто…</p>'}
+        </div>
+      {/if}
     </div>
     <div class="grid3">
       <div>
@@ -564,6 +641,42 @@
     flex-direction: column;
     gap: 18px;
   }
+  .avatar-block {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .avatar-preview {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--line-18);
+    background: var(--glass-06);
+    flex: none;
+  }
+  .avatar-controls {
+    flex: 1;
+    min-width: min(260px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .avatar-controls input[type='file'] {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+  .avatar-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-sm {
+    margin-top: 10px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+  }
   label {
     display: block;
     font-size: 12.5px;
@@ -580,7 +693,7 @@
     color: var(--fg);
     padding: 12px 16px;
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--input-bg);
     border: 1px solid var(--line-15);
     outline: none;
     box-sizing: border-box;
@@ -632,7 +745,7 @@
     margin-top: 16px;
     padding: 16px;
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--input-bg);
     border: 1px solid var(--line-12);
   }
 

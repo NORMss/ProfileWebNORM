@@ -139,14 +139,14 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     border: 1px solid var(--line-15);
     box-shadow: var(--shadow-md);
     text-decoration: none;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--glass-05);
     transition:
       transform 0.3s,
       box-shadow 0.3s;
   }
   .card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow-lg);
   }
   .shot {
     position: absolute;
@@ -162,7 +162,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     bottom: 10px;
     border-radius: 18px;
     padding: 14px 16px;
-    background: rgba(10, 12, 22, 0.55);
+    background: var(--card-overlay);
     border: 1px solid var(--line-15);
   }
   .card-top {

@@ -45,9 +45,14 @@ const nav = [
         !hideNav && (
           <div class="nav-wrap">
             <nav class="glass">
-              <a href="/" class="brand" data-ripple>
-                normno<span class="brand-tld">.ru</span>
-              </a>
+              <button id="brand-smile" class="brand" type="button" aria-label="normno.ru" title="normno.ru">
+                {/* Фирменный смайл (Figma L8ByEhwaRWe2B7Hnpd16AD, Group 1): глаза «((» и улыбка */}
+                <svg viewBox="0 0 65 78" width="26" height="31" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" aria-hidden="true">
+                  <path class="smile-eye" d="M21 4 C 14.5 19, 14.5 35, 21 48" />
+                  <path class="smile-eye" d="M47.5 4 C 40 19, 40 35, 47.5 48" />
+                  <path class="smile-mouth" d="M3 65 C 20 76.5, 46 76.5, 62 64" />
+                </svg>
+              </button>
               {nav.map((item) => (
                 <a href={item.href} class:list={['nav-link', { active: active === item.key }]} data-ripple>
                   {item.label}
@@ -76,11 +81,21 @@ const nav = [
         target.appendChild(ink);
         setTimeout(() => ink.remove(), 650);
       });
+
+      // Пасхалка: клик по смайлу — моргание.
+      const smile = document.getElementById('brand-smile');
+      smile?.addEventListener('click', () => {
+        smile.classList.remove('blinking');
+        // reflow, чтобы анимация перезапускалась при повторных кликах
+        void smile.offsetWidth;
+        smile.classList.add('blinking');
+        setTimeout(() => smile.classList.remove('blinking'), 1300);
+      });
     </script>
   </body>
 </html>
 
-<style define:vars={{}}>
+<style>
   .page {
     min-height: 100vh;
     position: relative;
@@ -93,15 +108,15 @@ const nav = [
     pointer-events: none;
   }
   .blob-a {
-    background: radial-gradient(circle, hsla(50, 80%, 60%, 0.32), transparent 70%);
+    background: var(--blob-a);
     animation: blobA 14s ease-in-out infinite;
   }
   .blob-b {
-    background: radial-gradient(circle, hsla(110, 80%, 60%, 0.32), transparent 70%);
+    background: var(--blob-b);
     animation: blobB 14s ease-in-out infinite;
   }
   .blob-c {
-    background: radial-gradient(circle, hsla(-5, 80%, 60%, 0.32), transparent 70%);
+    background: var(--blob-c);
     animation: blobA 14s ease-in-out infinite;
   }
 
@@ -125,20 +140,29 @@ const nav = [
     border: 1px solid var(--line-14);
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      inset 0 1px 0 var(--inset-top);
   }
   .brand {
-    font-weight: 700;
-    font-size: 15px;
-    padding: 8px clamp(9px, 2.6vw, 16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px clamp(9px, 2.6vw, 14px);
     border-radius: 20px;
-    letter-spacing: 0.3px;
-    text-decoration: none;
-    position: relative;
-    overflow: hidden;
+    border: none;
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
-  .brand-tld {
-    opacity: 0.5;
+  .brand svg {
+    display: block;
+  }
+  .smile-eye {
+    transform-origin: 50% 26px;
+    transform-box: view-box;
+  }
+  .brand.blinking .smile-eye {
+    animation: smileBlink 1.2s ease-in-out;
   }
   .nav-link {
     font-size: clamp(12.5px, 3.3vw, 14px);
