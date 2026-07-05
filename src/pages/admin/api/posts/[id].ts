@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
+import { editPostInTelegram } from '../../../../lib/telegram';
 
 function parseId(raw: string | undefined): number | null {
   const id = Number.parseInt(raw ?? '', 10);
@@ -20,7 +21,20 @@ export const PUT: APIRoute = async ({ params, request }) => {
   }
   if (body.status === 'draft' || body.status === 'published') set.status = body.status;
   db.update(schema.posts).set(set).where(eq(schema.posts.id, id)).run();
-  return Response.json({ ok: true });
+
+  // Пост уже есть в Telegram и текст менялся → обновляем сообщение в канале.
+  // Ошибка Telegram не отменяет правку на сайте — вернётся предупреждением.
+  let telegramError: string | null = null;
+  const contentChanged = set.title !== undefined || set.bodyMd !== undefined;
+  const post = db.select().from(schema.posts).where(eq(schema.posts.id, id)).get();
+  if (contentChanged && post?.tgMessageId) {
+    try {
+      await editPostInTelegram(id);
+    } catch (e) {
+      telegramError = e instanceof Error ? e.message : String(e);
+    }
+  }
+  return Response.json({ ok: true, telegramError });
 };
 
 export const DELETE: APIRoute = async ({ params }) => {

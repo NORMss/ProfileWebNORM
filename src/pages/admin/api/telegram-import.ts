@@ -7,8 +7,8 @@ export const POST: APIRoute = async () => {
     return Response.json({ ok: false, error: 'TELEGRAM_BOT_TOKEN не задан в .env' }, { status: 400 });
   }
   try {
-    const { imported } = await syncTelegram();
-    return Response.json({ ok: true, imported });
+    const { imported, updated } = await syncTelegram();
+    return Response.json({ ok: true, imported, updated });
   } catch (e) {
     return Response.json({ ok: false, error: String(e) }, { status: 502 });
   }

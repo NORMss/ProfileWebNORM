@@ -10,15 +10,55 @@ const md = new MarkdownIt({ html: false, linkify: true });
 const TG_TEXT_LIMIT = 4096;
 const TG_SAFE_LIMIT = 3900;
 
+interface TgResponse<T> {
+  ok: boolean;
+  result?: T;
+  description?: string;
+  error_code?: number;
+}
+
+async function tgApi<T>(method: string, payload: Record<string, unknown>): Promise<TgResponse<T>> {
+  const token = config.telegramBotToken;
+  if (!token) throw new Error('TELEGRAM_BOT_TOKEN не задан в .env');
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return (await res.json().catch(() => ({ ok: false, description: `HTTP ${res.status}` }))) as TgResponse<T>;
+}
+
+function channelChatId(): string {
+  const channel = config.telegramChannel;
+  if (!channel) throw new Error('TELEGRAM_CHANNEL не задан в .env (@username или -100…)');
+  return channel.startsWith('@') || channel.startsWith('-') ? channel : `@${channel}`;
+}
+
+/** Rich-markdown недоступен (старый Bot API сервер) — надо падать на HTML-режим. */
+function isRichUnsupported(r: TgResponse<unknown>): boolean {
+  return r.error_code === 404 || /not found|unknown method|rich/i.test(r.description ?? '');
+}
+
+/** Относительные ссылки на картинки (/media/…) → абсолютные, чтобы Telegram смог их скачать. */
+function absolutizeMedia(markdown: string): string {
+  const base = config.siteUrl.replace(/\/$/, '');
+  return markdown.replace(/(!?\[[^\]]*\]\()(\/(?:media|_astro)\/)/g, `$1${base}$2`);
+}
+
+/** Полный markdown поста для rich-режима: заголовок + тело. */
+function postMarkdown(post: { title: string; bodyMd: string }): string {
+  return `# ${post.title}\n\n${absolutizeMedia(post.bodyMd)}`.trim();
+}
+
 /**
- * Markdown → HTML, который понимает Telegram Bot API (parse_mode=HTML).
- * Telegram поддерживает только b/i/u/s/a/code/pre/blockquote и не понимает
- * блочные теги — заголовки становятся жирными строками, списки — «• …».
+ * Markdown → HTML для СТАРОГО режима (sendMessage parse_mode=HTML) — фолбэк,
+ * если Bot API сервер ещё не поддерживает rich-сообщения (до 10.1).
+ * Telegram понимает только b/i/u/s/a/code/pre/blockquote: заголовки становятся
+ * жирными строками, списки — «• …», картинки — ссылками.
  */
 export function mdToTelegramHtml(source: string): string {
-  let html = md.render(source);
+  let html = md.render(absolutizeMedia(source));
 
-  // Блочная структура → переводы строк (до sanitize, иначе текст склеится)
   html = html
     .replace(/<h[1-6][^>]*>/g, '<b>')
     .replace(/<\/h[1-6]>/g, '</b>\n\n')
@@ -28,7 +68,7 @@ export function mdToTelegramHtml(source: string): string {
     .replace(/<br\s*\/?>/g, '\n')
     .replace(/<p[^>]*>/g, '')
     .replace(/<\/p>/g, '\n\n')
-    .replace(/<img[^>]*>/g, '')
+    .replace(/<img[^>]*src="([^"]+)"[^>]*>/g, '<a href="$1">🖼 изображение</a>')
     .replace(/<hr[^>]*\/?>/g, '—\n\n');
 
   html = sanitizeHtml(html, {
@@ -44,30 +84,9 @@ export function mdToTelegramHtml(source: string): string {
     .trim();
 }
 
-interface TgSendResult {
-  ok: boolean;
-  result?: { message_id: number };
-  description?: string;
-}
-
-/**
- * Публикация поста в Telegram-канал (TELEGRAM_CHANNEL) от имени бота.
- * Возвращает message_id — он сохраняется в пост, чтобы импорт канала
- * не создал дубликат. Если текст длиннее лимита — обрезаем и ставим
- * ссылку «Читать полностью» на сайт.
- */
-export async function sendPostToTelegram(postId: number): Promise<{ messageId: number }> {
-  const token = config.telegramBotToken;
-  if (!token) throw new Error('TELEGRAM_BOT_TOKEN не задан в .env');
-  const channel = config.telegramChannel;
-  if (!channel) throw new Error('TELEGRAM_CHANNEL не задан в .env (например, @normno)');
-
-  const post = db.select().from(schema.posts).where(eq(schema.posts.id, postId)).get();
-  if (!post) throw new Error('Пост не найден');
-  if (post.tgMessageId) throw new Error('Пост уже опубликован в Telegram');
-
+function htmlMessageText(post: { id: number; title: string; bodyMd: string }): string {
   const title = `<b>${escapeHtml(post.title)}</b>`;
-  let body = mdToTelegramHtml(post.bodyMd);
+  const body = mdToTelegramHtml(post.bodyMd);
   const postUrl = `${config.siteUrl.replace(/\/$/, '')}/publications/${post.id}`;
 
   let text = `${title}\n\n${body}`;
@@ -83,27 +102,113 @@ export async function sendPostToTelegram(postId: number): Promise<{ messageId: n
     text = `${title}\n\n${cut}\n\n<a href="${postUrl}">Читать полностью →</a>`;
   }
   if (text.length > TG_TEXT_LIMIT) text = text.slice(0, TG_TEXT_LIMIT);
+  return text;
+}
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: channel.startsWith('@') || channel.startsWith('-') ? channel : `@${channel}`,
-      text,
+function getPost(postId: number) {
+  const post = db.select().from(schema.posts).where(eq(schema.posts.id, postId)).get();
+  if (!post) throw new Error('Пост не найден');
+  return post;
+}
+
+/**
+ * Публикация поста в Telegram-канал.
+ * Основной путь — rich-сообщения (Bot API 10.1, июнь 2026): sendRichMessage
+ * принимает markdown как есть, Telegram сам рендерит заголовки, списки и
+ * картинки. Фолбэк для старых серверов — sendMessage с parse_mode=HTML.
+ */
+export async function sendPostToTelegram(postId: number): Promise<{ messageId: number }> {
+  const post = getPost(postId);
+  if (post.tgMessageId) throw new Error('Пост уже опубликован в Telegram');
+  const chatId = channelChatId();
+
+  let r = await tgApi<{ message_id: number }>('sendRichMessage', {
+    chat_id: chatId,
+    rich_message: { markdown: postMarkdown(post) },
+  });
+  if (!r.ok && isRichUnsupported(r)) {
+    r = await tgApi<{ message_id: number }>('sendMessage', {
+      chat_id: chatId,
+      text: htmlMessageText(post),
       parse_mode: 'HTML',
       link_preview_options: { is_disabled: true },
-    }),
-  });
-  const data = (await res.json().catch(() => ({}))) as TgSendResult;
-  if (!data.ok || !data.result) {
-    throw new Error(`Telegram: ${data.description ?? `HTTP ${res.status}`}`);
+    });
   }
+  if (!r.ok || !r.result) throw new Error(`Telegram: ${r.description ?? 'неизвестная ошибка'}`);
 
   db.update(schema.posts)
-    .set({ tgMessageId: data.result.message_id, updatedAt: new Date().toISOString() })
+    .set({ tgMessageId: r.result.message_id, updatedAt: new Date().toISOString() })
     .where(eq(schema.posts.id, postId))
     .run();
-  return { messageId: data.result.message_id };
+  return { messageId: r.result.message_id };
+}
+
+/**
+ * Обновление уже опубликованного в канале сообщения после редактирования
+ * поста на сайте: editMessageText с rich_message (10.1), фолбэк — HTML,
+ * затем editMessageCaption (если сообщение было с медиа).
+ */
+export async function editPostInTelegram(postId: number): Promise<void> {
+  const post = getPost(postId);
+  if (!post.tgMessageId) throw new Error('Пост ещё не опубликован в Telegram');
+  const base = { chat_id: channelChatId(), message_id: post.tgMessageId };
+
+  let r = await tgApi<unknown>('editMessageText', {
+    ...base,
+    rich_message: { markdown: postMarkdown(post) },
+  });
+  if (!r.ok && (isRichUnsupported(r) || /rich_message/i.test(r.description ?? ''))) {
+    r = await tgApi<unknown>('editMessageText', {
+      ...base,
+      text: htmlMessageText(post),
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+    });
+  }
+  if (!r.ok && /no text in the message/i.test(r.description ?? '')) {
+    r = await tgApi<unknown>('editMessageCaption', {
+      ...base,
+      caption: htmlMessageText(post).slice(0, 1024),
+      parse_mode: 'HTML',
+    });
+  }
+  // «message is not modified» — текст не изменился, это не ошибка
+  if (!r.ok && !/message is not modified/i.test(r.description ?? '')) {
+    throw new Error(`Telegram: ${r.description ?? 'неизвестная ошибка'}`);
+  }
+}
+
+export interface TelegramStatus {
+  configured: boolean;
+  bot?: { username: string; canReadAllGroupMessages?: boolean };
+  webhookUrl?: string;
+  pendingUpdates?: number;
+  lastErrorMessage?: string;
+  channel?: string;
+  error?: string;
+}
+
+/** Диагностика подключения бота — для панели в админке. */
+export async function getTelegramStatus(): Promise<TelegramStatus> {
+  if (!config.telegramBotToken) return { configured: false, error: 'TELEGRAM_BOT_TOKEN не задан' };
+  try {
+    const me = await tgApi<{ username: string }>('getMe', {});
+    if (!me.ok || !me.result) return { configured: true, error: `getMe: ${me.description}` };
+    const wh = await tgApi<{ url: string; pending_update_count: number; last_error_message?: string }>(
+      'getWebhookInfo',
+      {},
+    );
+    return {
+      configured: true,
+      bot: { username: me.result.username },
+      webhookUrl: wh.result?.url || '',
+      pendingUpdates: wh.result?.pending_update_count ?? 0,
+      lastErrorMessage: wh.result?.last_error_message,
+      channel: config.telegramChannel || '(не задан)',
+    };
+  } catch (e) {
+    return { configured: true, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 function escapeHtml(s: string): string {

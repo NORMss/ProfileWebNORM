@@ -221,8 +221,12 @@
     }
     try {
       if (editingId !== null) {
-        await api(`/admin/api/posts/${editingId}`, 'PUT', { title: postTitle, bodyMd: postBody, status });
-        say(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
+        const r = await api(`/admin/api/posts/${editingId}`, 'PUT', { title: postTitle, bodyMd: postBody, status });
+        if (r.telegramError) {
+          alert(`Пост обновлён на сайте, но сообщение в Telegram обновить не удалось:\n${r.telegramError}`);
+        } else {
+          say(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
+        }
       } else {
         const r = await api('/admin/api/posts', 'POST', {
           title: postTitle,
@@ -310,12 +314,65 @@
     }
   }
 
+  // Вставка загруженной картинки в markdown поста (в позицию курсора)
+  let postBodyEl = $state<HTMLTextAreaElement | null>(null);
+  let postImageInput = $state<HTMLInputElement | null>(null);
+  let uploadingImage = $state(false);
+
+  async function uploadPostImage(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    uploadingImage = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/admin/api/post-image', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok === false) throw new Error(String(data.error ?? `HTTP ${res.status}`));
+      const snippet = String(data.markdown);
+      const pos = postBodyEl?.selectionStart ?? postBody.length;
+      postBody = postBody.slice(0, pos) + `\n${snippet}\n` + postBody.slice(pos);
+      say('Картинка добавлена в текст');
+    } catch (err) {
+      say(`Ошибка загрузки: ${err}`);
+    } finally {
+      uploadingImage = false;
+      input.value = '';
+    }
+  }
+
+  // Диагностика Telegram-бота
+  interface TgStatus {
+    configured: boolean;
+    bot?: { username: string };
+    webhookUrl?: string;
+    pendingUpdates?: number;
+    lastErrorMessage?: string;
+    channel?: string;
+    error?: string;
+  }
+  let tgStatus = $state<TgStatus | null>(null);
+  let tgStatusLoading = $state(false);
+
+  async function checkTgStatus() {
+    tgStatusLoading = true;
+    try {
+      const res = await fetch('/admin/api/telegram-status');
+      tgStatus = (await res.json()) as TgStatus;
+    } catch (e) {
+      tgStatus = { configured: false, error: String(e) };
+    } finally {
+      tgStatusLoading = false;
+    }
+  }
+
   async function importTelegram() {
     importing = true;
     try {
       const r = await api('/admin/api/telegram-import', 'POST');
-      say(`Импортировано постов: ${r.imported}`);
-      if (Number(r.imported) > 0) location.reload();
+      say(`Импортировано: ${r.imported}, обновлено: ${r.updated ?? 0}`);
+      if (Number(r.imported) > 0 || Number(r.updated) > 0) location.reload();
     } catch (e) {
       say(`Ошибка импорта: ${e}`);
     } finally {
@@ -493,7 +550,21 @@
     <div class="panel">
       <h2>{editingId !== null ? `Редактирование #${editingId}` : 'Новая публикация · Markdown'}</h2>
       <input class="post-title" bind:value={postTitle} placeholder="Заголовок" />
-      <textarea class="post-body" rows="9" bind:value={postBody} placeholder="## Что нового…"></textarea>
+      <textarea class="post-body" rows="9" bind:value={postBody} bind:this={postBodyEl} placeholder="## Что нового…"
+      ></textarea>
+      <div class="image-row">
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          bind:this={postImageInput}
+          onchange={uploadPostImage}
+          hidden
+        />
+        <button class="btn btn-sm" onclick={() => postImageInput?.click()} disabled={uploadingImage}>
+          {uploadingImage ? 'Загрузка…' : '🖼 Прикрепить фото'}
+        </button>
+        <span class="hint small">…или вставьте в текст markdown-ссылку: ![](https://…)</span>
+      </div>
       {#if editingId === null}
         <label class="tg-check">
           <input type="checkbox" bind:checked={sendToTelegram} />
@@ -522,12 +593,37 @@
       <div class="panel tg-panel">
         <h2>Telegram-канал</h2>
         <p class="hint">Импорт последних постов из канала как публикаций.</p>
-        <button class="btn btn-tg" onclick={importTelegram} disabled={importing}>
-          {importing ? 'Импорт…' : '↧ Парсить посты'}
-        </button>
+        <div class="tg-actions">
+          <button class="btn btn-tg" onclick={importTelegram} disabled={importing}>
+            {importing ? 'Импорт…' : '↧ Парсить посты'}
+          </button>
+          <button class="btn btn-sm" onclick={checkTgStatus} disabled={tgStatusLoading}>
+            {tgStatusLoading ? 'Проверка…' : '🔍 Диагностика'}
+          </button>
+        </div>
         <div class="hint small">
           Последний импорт: {tgLastImport ? `${fmt(tgLastImport.at)} · ${tgLastImport.count} пост(ов)` : 'ещё не было'}
         </div>
+        {#if tgStatus}
+          <div class="tg-status">
+            {#if tgStatus.error}
+              <div class="tg-bad">⚠ {tgStatus.error}</div>
+            {:else}
+              <div>Бот: <b>@{tgStatus.bot?.username}</b> · канал: <b>{tgStatus.channel}</b></div>
+              {#if tgStatus.webhookUrl}
+                <div class="tg-bad">
+                  ⚠ Установлен webhook ({tgStatus.webhookUrl}) — getUpdates не работает, пока он не снят
+                  (см. docs/TELEGRAM.md)
+                </div>
+              {:else}
+                <div>Webhook не установлен ✓ · непрочитанных апдейтов: {tgStatus.pendingUpdates}</div>
+              {/if}
+              {#if tgStatus.lastErrorMessage}
+                <div class="tg-bad">Последняя ошибка Telegram: {tgStatus.lastErrorMessage}</div>
+              {/if}
+            {/if}
+          </div>
+        {/if}
       </div>
 
       <div class="panel">
@@ -1017,6 +1113,38 @@
 
   .tg-panel {
     background: linear-gradient(145deg, rgba(42, 151, 225, 0.12), rgba(255, 255, 255, 0.05));
+  }
+  .tg-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .tg-status {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--line-12);
+    font-size: 12.5px;
+    color: var(--fg-60);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-wrap: anywhere;
+  }
+  .tg-bad {
+    color: #e8a06a;
+  }
+  .image-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .image-row .btn-sm {
+    margin-top: 0;
   }
   .tg-panel .hint {
     margin: 0 0 16px;
