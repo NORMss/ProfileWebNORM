@@ -43,6 +43,9 @@
   --badge-admin-fg: #b8caff;
   --badge-tg-bg: rgba(42, 151, 225, 0.22);
   --badge-tg-fg: #7cc0ef;
+  --chip-vibe-bg: rgba(200, 140, 210, 0.25);
+  --chip-vibe-fg: #e2b7e8;
+  --toast-bg: rgba(20, 24, 40, 0.92);
   --tint-tg-bg: rgba(42, 151, 225, 0.16);
   --tint-tg-line: rgba(90, 170, 230, 0.35);
   --tint-yt-bg: rgba(230, 60, 60, 0.14);
@@ -97,6 +100,9 @@
     --badge-admin-fg: #6e4f24;
     --badge-tg-bg: rgba(120, 170, 215, 0.4);
     --badge-tg-fg: #2b5b80;
+    --chip-vibe-bg: rgba(200, 140, 210, 0.32);
+    --chip-vibe-fg: #864791;
+    --toast-bg: rgba(255, 250, 240, 0.96);
     --tint-tg-bg: rgba(150, 196, 235, 0.4);
     --tint-tg-line: rgba(110, 160, 205, 0.5);
     --tint-yt-bg: rgba(240, 170, 155, 0.4);

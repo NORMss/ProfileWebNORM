@@ -465,9 +465,12 @@
     z-index: 100;
     padding: 12px 22px;
     border-radius: 16px;
-    background: rgba(20, 24, 40, 0.9);
+    background: var(--toast-bg);
+    color: var(--fg);
     border: 1px solid var(--line-18);
     backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
     font-size: 14px;
     max-width: min(90vw, 480px);
   }
@@ -533,9 +536,9 @@
     filter: brightness(1.06);
   }
   .btn-tg {
-    color: #7cc0ef;
-    background: rgba(42, 151, 225, 0.16);
-    border-color: rgba(90, 170, 230, 0.4);
+    color: var(--badge-tg-fg);
+    background: var(--badge-tg-bg);
+    border-color: var(--tint-tg-line);
   }
 
   .rows {
@@ -587,12 +590,12 @@
     filter: brightness(1.15);
   }
   .chip-hard {
-    background: rgba(157, 183, 255, 0.2);
-    color: #b8caff;
+    background: var(--badge-admin-bg);
+    color: var(--badge-admin-fg);
   }
   .chip-vibe {
-    background: rgba(200, 140, 210, 0.25);
-    color: #e2b7e8;
+    background: var(--chip-vibe-bg);
+    color: var(--chip-vibe-fg);
   }
 
   .switch {
