@@ -9,12 +9,15 @@ export function uploadsDir(): string {
   return dir;
 }
 
-export const AVATAR_MIME: Record<string, string> = {
+export const IMAGE_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
 };
-
 export function avatarPath(ext: string): string {
   return path.join(uploadsDir(), `avatar.${ext}`);
+}
+
+export function coverPath(repoId: number, ext: string): string {
+  return path.join(uploadsDir(), `cover-${repoId}.${ext}`);
 }

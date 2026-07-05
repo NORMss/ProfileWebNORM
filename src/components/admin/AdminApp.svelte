@@ -2,9 +2,12 @@
   interface RepoRow {
     id: number;
     name: string;
+    fullName: string;
     description: string;
     category: string;
     visible: number;
+    imageUrl: string;
+    readmeImages: string[];
   }
   interface PostRow {
     id: number;
@@ -13,6 +16,7 @@
     source: string;
     status: string;
     createdAt: string;
+    tgMessageId: number | null;
   }
   interface About {
     text: string;
@@ -49,6 +53,20 @@
   let toast = $state('');
   let syncing = $state(false);
   let importing = $state(false);
+
+  // Редактор обложки проекта
+  let coverOpenId = $state<number | null>(null);
+  let coverFile = $state<FileList | null>(null);
+  let uploadingCover = $state(false);
+  let sendToTelegram = $state(false);
+  let sendingTgId = $state<number | null>(null);
+
+  function ogImage(repo: RepoRow) {
+    return `https://opengraph.githubassets.com/1/${repo.fullName}`;
+  }
+  function coverPreview(repo: RepoRow) {
+    return repo.imageUrl || ogImage(repo);
+  }
 
   // Редактор публикаций
   let editingId = $state<number | null>(null);
@@ -204,10 +222,20 @@
     try {
       if (editingId !== null) {
         await api(`/admin/api/posts/${editingId}`, 'PUT', { title: postTitle, bodyMd: postBody, status });
+        say(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
       } else {
-        await api('/admin/api/posts', 'POST', { title: postTitle, bodyMd: postBody, status });
+        const r = await api('/admin/api/posts', 'POST', {
+          title: postTitle,
+          bodyMd: postBody,
+          status,
+          sendToTelegram: sendToTelegram && status === 'published',
+        });
+        if (r.telegramError) {
+          alert(`Пост опубликован на сайте, но не отправлен в Telegram:\n${r.telegramError}`);
+        } else {
+          say(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
+        }
       }
-      say(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
       location.reload();
     } catch (e) {
       say(`Ошибка: ${e}`);
@@ -232,6 +260,53 @@
       p.status = next;
     } catch (e) {
       say(`Ошибка: ${e}`);
+    }
+  }
+
+  async function chooseCover(repo: RepoRow, imageUrl: string) {
+    try {
+      const r = await api('/admin/api/repo-cover', 'PUT', { id: repo.id, imageUrl });
+      repo.imageUrl = String(r.imageUrl ?? '');
+      say(imageUrl === '' ? 'Обложка: og-image GitHub' : 'Обложка выбрана из README');
+    } catch (e) {
+      say(`Ошибка: ${e}`);
+    }
+  }
+
+  async function uploadCover(repo: RepoRow) {
+    const file = coverFile?.[0];
+    if (!file) {
+      say('Выберите файл (PNG, JPEG или WebP)');
+      return;
+    }
+    uploadingCover = true;
+    try {
+      const fd = new FormData();
+      fd.append('id', String(repo.id));
+      fd.append('file', file);
+      const res = await fetch('/admin/api/repo-cover', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok || data.ok === false) throw new Error(String(data.error ?? `HTTP ${res.status}`));
+      repo.imageUrl = String(data.imageUrl);
+      coverFile = null;
+      say('Своя обложка загружена');
+    } catch (e) {
+      say(`Ошибка загрузки: ${e}`);
+    } finally {
+      uploadingCover = false;
+    }
+  }
+
+  async function sendPostTg(p: PostRow) {
+    sendingTgId = p.id;
+    try {
+      const r = await api('/admin/api/telegram-send', 'POST', { postId: p.id });
+      p.tgMessageId = Number(r.messageId);
+      say('Пост опубликован в Telegram');
+    } catch (e) {
+      say(`Ошибка отправки в TG: ${e}`);
+    } finally {
+      sendingTgId = null;
     }
   }
 
@@ -288,28 +363,80 @@
     {/if}
     <div class="rows">
       {#each repos as repo (repo.id)}
-        <div class="row" class:dim={!repo.visible}>
-          <strong class="row-name">{repo.name}</strong>
-          <span class="row-desc">{repo.description}</span>
-          <button
-            class="chip"
-            class:chip-hard={repo.category === 'hard'}
-            class:chip-vibe={repo.category === 'vibe'}
-            onclick={() => toggleCategory(repo)}
-            title="Переключить категорию"
-          >
-            {repo.category === 'hard' ? 'HARD CODE' : 'VIBE CODE'}
-          </button>
-          <button
-            class="switch"
-            class:on={!!repo.visible}
-            role="switch"
-            aria-checked={!!repo.visible}
-            aria-label={`Показывать ${repo.name} на сайте`}
-            onclick={() => toggleVisible(repo)}
-          >
-            <span class="knob"></span>
-          </button>
+        <div class="row-wrap glass-item" class:dim={!repo.visible}>
+          <div class="row row-flat">
+            <button
+              class="cover-thumb"
+              title="Обложка проекта"
+              onclick={() => {
+                coverOpenId = coverOpenId === repo.id ? null : repo.id;
+                coverFile = null;
+              }}
+            >
+              <img src={coverPreview(repo)} alt="" loading="lazy" />
+              <span class="cover-edit">✎</span>
+            </button>
+            <strong class="row-name">{repo.name}</strong>
+            <span class="row-desc">{repo.description}</span>
+            <button
+              class="chip"
+              class:chip-hard={repo.category === 'hard'}
+              class:chip-vibe={repo.category === 'vibe'}
+              onclick={() => toggleCategory(repo)}
+              title="Переключить категорию"
+            >
+              {repo.category === 'hard' ? 'HARD CODE' : 'VIBE CODE'}
+            </button>
+            <button
+              class="switch"
+              class:on={!!repo.visible}
+              role="switch"
+              aria-checked={!!repo.visible}
+              aria-label={`Показывать ${repo.name} на сайте`}
+              onclick={() => toggleVisible(repo)}
+            >
+              <span class="knob"></span>
+            </button>
+          </div>
+
+          {#if coverOpenId === repo.id}
+            <div class="cover-editor">
+              <div class="cover-label">
+                Обложка: og-image GitHub, картинка из README или своя (файл хранится на сервере только для своей)
+              </div>
+              <div class="cover-grid">
+                <button
+                  class="cover-option"
+                  class:selected={repo.imageUrl === ''}
+                  onclick={() => chooseCover(repo, '')}
+                  title="og-image GitHub (по умолчанию)"
+                >
+                  <img src={ogImage(repo)} alt="og-image" loading="lazy" />
+                  <span>og-image</span>
+                </button>
+                {#each repo.readmeImages as img (img)}
+                  <button
+                    class="cover-option"
+                    class:selected={repo.imageUrl === img}
+                    onclick={() => chooseCover(repo, img)}
+                    title={img}
+                  >
+                    <img src={img} alt="Из README" loading="lazy" />
+                    <span>README</span>
+                  </button>
+                {/each}
+              </div>
+              {#if repo.readmeImages.length === 0}
+                <div class="hint small">В README картинок не найдено (обновляется при синке).</div>
+              {/if}
+              <div class="cover-upload">
+                <input type="file" accept="image/png,image/jpeg,image/webp" bind:files={coverFile} />
+                <button class="btn" onclick={() => uploadCover(repo)} disabled={uploadingCover}>
+                  {uploadingCover ? 'Загрузка…' : '⤒ Своя обложка'}
+                </button>
+              </div>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -367,6 +494,12 @@
       <h2>{editingId !== null ? `Редактирование #${editingId}` : 'Новая публикация · Markdown'}</h2>
       <input class="post-title" bind:value={postTitle} placeholder="Заголовок" />
       <textarea class="post-body" rows="9" bind:value={postBody} placeholder="## Что нового…"></textarea>
+      {#if editingId === null}
+        <label class="tg-check">
+          <input type="checkbox" bind:checked={sendToTelegram} />
+          Сразу отправить в Telegram-канал
+        </label>
+      {/if}
       <div class="editor-actions">
         <button class="btn btn-primary" onclick={() => savePost('published')}>Опубликовать</button>
         <button class="btn" onclick={() => savePost('draft')}>Черновик</button>
@@ -411,6 +544,19 @@
               <span class="row-name post-name" class:dim={p.status === 'draft'}>{p.title}</span>
               <span class="hint small">{fmt(p.createdAt)}</span>
               <span class="post-actions">
+                {#if p.status === 'published' && p.source === 'admin' && !p.tgMessageId}
+                  <button
+                    class="mini"
+                    onclick={() => sendPostTg(p)}
+                    disabled={sendingTgId === p.id}
+                    title="Отправить в Telegram-канал"
+                  >
+                    {sendingTgId === p.id ? '…' : '📨'}
+                  </button>
+                {/if}
+                {#if p.tgMessageId}
+                  <span class="mini tg-done" title="Уже в Telegram">✓TG</span>
+                {/if}
                 <button class="mini" onclick={() => togglePostStatus(p)} title="Опубликовать/в черновик">
                   {p.status === 'published' ? '👁' : '🌙'}
                 </button>
@@ -556,9 +702,103 @@
     background: var(--glass-05);
     border: 1px solid var(--line-12);
   }
-  .row.dim .row-name,
-  .row.dim .row-desc {
+  .row-wrap {
+    border-radius: 18px;
+  }
+  .row-flat {
+    background: none;
+    border: none;
+  }
+  .row-wrap.dim .row-name,
+  .row-wrap.dim .row-desc,
+  .row-wrap.dim .cover-thumb {
     opacity: 0.45;
+  }
+  .cover-thumb {
+    position: relative;
+    width: 56px;
+    height: 42px;
+    flex: none;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line-15);
+    background: var(--glass-06);
+    padding: 0;
+    cursor: pointer;
+  }
+  .cover-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .cover-edit {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px;
+    border-radius: 6px;
+    background: var(--toast-bg);
+    color: var(--fg);
+  }
+  .cover-editor {
+    padding: 0 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cover-label {
+    font-size: 12px;
+    color: var(--fg-50);
+  }
+  .cover-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .cover-option {
+    width: 108px;
+    border: 2px solid var(--line-14);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--glass-05);
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+  }
+  .cover-option img {
+    width: 100%;
+    height: 64px;
+    object-fit: cover;
+    display: block;
+  }
+  .cover-option span {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--fg-55);
+    padding: 4px 0;
+    text-align: center;
+  }
+  .cover-option.selected {
+    border-color: var(--green);
+  }
+  .cover-option.selected span {
+    color: var(--green);
+  }
+  .cover-upload {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .cover-upload input[type='file'] {
+    flex: 1;
+    min-width: min(220px, 100%);
+    padding: 8px 12px;
+    font-size: 12.5px;
   }
   .row-name {
     font-size: 14px;
@@ -738,11 +978,34 @@
     font-size: 13px;
     line-height: 1.6;
   }
+  .tg-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--fg-60);
+    cursor: pointer;
+  }
+  .tg-check input {
+    width: auto;
+    accent-color: #2a97e1;
+  }
   .editor-actions {
     display: flex;
     gap: 10px;
     margin-top: 14px;
     flex-wrap: wrap;
+  }
+  .tg-done {
+    width: auto;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--badge-tg-fg);
+    background: var(--badge-tg-bg);
+    border: none;
+    cursor: default;
   }
   .preview {
     margin-top: 16px;

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import type { APIRoute } from 'astro';
 import { getSetting, setSetting } from '../../../lib/settings';
-import { AVATAR_MIME, avatarPath } from '../../../lib/uploads';
+import { IMAGE_MIME, avatarPath } from '../../../lib/uploads';
 
 const MAX_SIZE = 3 * 1024 * 1024; // 3 МБ достаточно для аватара
 
@@ -11,7 +11,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!(file instanceof File)) {
     return Response.json({ ok: false, error: 'Файл не передан' }, { status: 400 });
   }
-  const ext = AVATAR_MIME[file.type];
+  const ext = IMAGE_MIME[file.type];
   if (!ext) {
     return Response.json({ ok: false, error: 'Поддерживаются PNG, JPEG и WebP' }, { status: 400 });
   }

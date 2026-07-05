@@ -18,8 +18,12 @@ export const repos = sqliteTable('repos', {
   category: text('category').notNull().default('hard'),
   /** 1 — показывать на сайте */
   visible: integer('visible').notNull().default(1),
-  /** URL картинки-обложки; по умолчанию og-image GitHub, можно заменить в БД */
+  /** URL обложки: '' = og-image GitHub, URL картинки из README или /media/cover/<id> для своей */
   imageUrl: text('image_url').notNull().default(''),
+  /** Путь к загруженному файлу обложки на диске (только для своей картинки) */
+  coverFile: text('cover_file').notNull().default(''),
+  /** JSON-массив URL картинок, найденных в README при синке */
+  readmeImages: text('readme_images').notNull().default('[]'),
   readmeHtml: text('readme_html').notNull().default(''),
   latestTag: text('latest_tag').notNull().default(''),
   latestAssetUrl: text('latest_asset_url').notNull().default(''),

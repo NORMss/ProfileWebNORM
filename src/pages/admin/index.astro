@@ -5,13 +5,24 @@ import { getAllRepos, getAllPosts } from '../../lib/queries';
 import { getAbout, getAvatarUrl, getSetting } from '../../lib/settings';
 import { config } from '../../lib/config';
 
-const repos = getAllRepos().map((r) => ({
-  id: r.id,
-  name: r.name,
-  description: r.description,
-  category: r.category,
-  visible: r.visible,
-}));
+const repos = getAllRepos().map((r) => {
+  let readmeImages: string[] = [];
+  try {
+    readmeImages = JSON.parse(r.readmeImages);
+  } catch {
+    readmeImages = [];
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    fullName: r.fullName,
+    description: r.description,
+    category: r.category,
+    visible: r.visible,
+    imageUrl: r.imageUrl,
+    readmeImages,
+  };
+});
 const posts = getAllPosts().map((p) => ({
   id: p.id,
   title: p.title,
@@ -19,6 +30,7 @@ const posts = getAllPosts().map((p) => ({
   source: p.source,
   status: p.status,
   createdAt: p.createdAt,
+  tgMessageId: p.tgMessageId,
 }));
 const about = getAbout();
 const avatarUrl = getAvatarUrl();

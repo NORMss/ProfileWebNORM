@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS repos (
   category TEXT NOT NULL DEFAULT 'hard',
   visible INTEGER NOT NULL DEFAULT 1,
   image_url TEXT NOT NULL DEFAULT '',
+  cover_file TEXT NOT NULL DEFAULT '',
+  readme_images TEXT NOT NULL DEFAULT '[]',
   readme_html TEXT NOT NULL DEFAULT '',
   latest_tag TEXT NOT NULL DEFAULT '',
   latest_asset_url TEXT NOT NULL DEFAULT '',
@@ -87,6 +89,17 @@ function createDb() {
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('busy_timeout = 5000');
   sqlite.exec(DDL);
+  // Миграции для БД, созданных прошлыми версиями (ALTER TABLE идемпотентен через catch)
+  for (const ddl of [
+    "ALTER TABLE repos ADD COLUMN cover_file TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE repos ADD COLUMN readme_images TEXT NOT NULL DEFAULT '[]'",
+  ]) {
+    try {
+      sqlite.exec(ddl);
+    } catch {
+      /* колонка уже есть */
+    }
+  }
   const insert = sqlite.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, value);
   return drizzle(sqlite, { schema });

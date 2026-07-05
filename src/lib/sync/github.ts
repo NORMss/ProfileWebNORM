@@ -60,6 +60,17 @@ interface GhIssue {
   pull_request?: unknown;
 }
 
+/** URL картинок из отрендеренного README — кандидаты в обложку проекта. */
+function extractReadmeImages(readmeHtml: string, limit = 12): string[] {
+  const urls = new Set<string>();
+  for (const m of readmeHtml.matchAll(/<img[^>]+src="([^"]+)"/g)) {
+    const url = m[1];
+    if (/^https?:\/\//i.test(url) && !/\.svg(\?|$)/i.test(url)) urls.add(url);
+    if (urls.size >= limit) break;
+  }
+  return [...urls];
+}
+
 /**
  * Полный синк GitHub → SQLite: repos, releases + download_count, stargazers,
  * open issues, README (рендерится в HTML на этапе синка).
@@ -183,7 +194,8 @@ export async function syncGithub(): Promise<{ repos: number }> {
       console.error(`[sync] issues ${r.full_name}:`, e);
     }
 
-    // Репозиторий (visible/category/image_url управляются из админки — не трогаем при апдейте)
+    // Репозиторий (visible/category/image_url/cover_file управляются из админки — не трогаем при апдейте)
+    const readmeImages = JSON.stringify(extractReadmeImages(readmeHtml));
     db.insert(schema.repos)
       .values({
         id: r.id,
@@ -194,6 +206,7 @@ export async function syncGithub(): Promise<{ repos: number }> {
         stars: r.stargazers_count,
         totalDownloads,
         imageUrl: '',
+        readmeImages,
         readmeHtml,
         latestTag: latest?.tag_name ?? '',
         latestAssetUrl: latestAsset?.browser_download_url ?? '',
@@ -209,6 +222,7 @@ export async function syncGithub(): Promise<{ repos: number }> {
           htmlUrl: r.html_url,
           stars: r.stargazers_count,
           totalDownloads,
+          readmeImages,
           readmeHtml,
           latestTag: latest?.tag_name ?? '',
           latestAssetUrl: latestAsset?.browser_download_url ?? '',
@@ -219,11 +233,19 @@ export async function syncGithub(): Promise<{ repos: number }> {
       .run();
   }
 
-  // Репозитории, исчезнувшие с GitHub, убираем из БД
+  // Репозитории, исчезнувшие с GitHub, убираем из БД (вместе с файлами обложек)
   const keepIds = active.map((r) => r.id);
   if (keepIds.length > 0) {
-    const gone = db.select({ id: schema.repos.id }).from(schema.repos).where(notInArray(schema.repos.id, keepIds)).all();
+    const gone = db
+      .select({ id: schema.repos.id, coverFile: schema.repos.coverFile })
+      .from(schema.repos)
+      .where(notInArray(schema.repos.id, keepIds))
+      .all();
     if (gone.length > 0) {
+      const fs = await import('node:fs');
+      for (const g of gone) {
+        if (g.coverFile && fs.existsSync(g.coverFile)) fs.unlinkSync(g.coverFile);
+      }
       const goneIds = gone.map((g) => g.id);
       db.delete(schema.repos).where(inArray(schema.repos.id, goneIds)).run();
       db.delete(schema.issues).where(inArray(schema.issues.repoId, goneIds)).run();

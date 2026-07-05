@@ -1,9 +1,15 @@
 import type { APIRoute } from 'astro';
 import { db, schema } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
+import { sendPostToTelegram } from '../../../../lib/telegram';
 
 export const POST: APIRoute = async ({ request }) => {
-  const body = (await request.json()) as { title?: string; bodyMd?: string; status?: string };
+  const body = (await request.json()) as {
+    title?: string;
+    bodyMd?: string;
+    status?: string;
+    sendToTelegram?: boolean;
+  };
   const title = (body.title ?? '').trim();
   if (!title) return Response.json({ ok: false, error: 'Заголовок обязателен' }, { status: 400 });
   const bodyMd = body.bodyMd ?? '';
@@ -22,5 +28,15 @@ export const POST: APIRoute = async ({ request }) => {
     })
     .returning({ id: schema.posts.id })
     .get();
-  return Response.json({ ok: true, id: inserted.id });
+
+  // Пост на сайте уже создан — ошибка Telegram не отменяет публикацию, а возвращается предупреждением
+  let telegramError: string | null = null;
+  if (body.sendToTelegram && status === 'published') {
+    try {
+      await sendPostToTelegram(inserted.id);
+    } catch (e) {
+      telegramError = e instanceof Error ? e.message : String(e);
+    }
+  }
+  return Response.json({ ok: true, id: inserted.id, telegramError });
 };
