@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
 import SpotifyWidget from '../components/SpotifyWidget.svelte';
 import { getAbout, getAboutHtml, getAvatarUrl } from '../lib/settings';
 import { getLatestUpdates, repoImage } from '../lib/queries';
@@ -13,9 +14,9 @@ const updates = getLatestUpdates(5);
 const nowPlaying = await getNowPlaying();
 
 const links = [
-  { key: 'tg', label: 'Telegram', short: 'TG', href: about.telegram, cls: 'link-tg' },
-  { key: 'yt', label: 'YouTube', short: 'YT', href: about.youtube, cls: 'link-yt' },
-  { key: 'gh', label: 'GitHub', short: 'GH', href: about.github, cls: 'link-gh' },
+  { icon: 'telegram' as const, label: 'Telegram', href: about.telegram, cls: 'link-tg' },
+  { icon: 'video' as const, label: 'YouTube', href: about.youtube, cls: 'link-yt' },
+  { icon: 'github' as const, label: 'GitHub', href: about.github, cls: 'link-gh' },
 ].filter((l) => l.href);
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
@@ -26,16 +27,25 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     <section class="hero glass">
       <div class="hero-row">
         <img class="avatar" src={avatarUrl} alt="Фото NORMno" width="104" height="104" />
-        <div class="hero-text md-body" set:html={aboutHtml} />
-        <div class="links">
-          {
-            links.map((l) => (
-              <a class:list={['social', l.cls]} href={l.href} target="_blank" rel="noopener noreferrer" data-ripple>
-                <span class="social-badge">{l.short}</span>
-                {l.label}
-              </a>
-            ))
-          }
+        <div class="hero-body">
+          <div class="hero-text md-body" set:html={aboutHtml} />
+          <div class="social-row">
+            {
+              links.map((l) => (
+                <a
+                  class:list={['social-icon', l.cls]}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={l.label}
+                  title={l.label}
+                  data-ripple
+                >
+                  <Icon name={l.icon} size={22} />
+                </a>
+              ))
+            }
+          </div>
         </div>
       </div>
     </section>
@@ -110,9 +120,11 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     background: var(--glass-06);
     object-fit: cover;
   }
-  .hero-text {
+  .hero-body {
     flex: 1;
     min-width: min(280px, 100%);
+  }
+  .hero-text {
     font-size: 17px;
     line-height: 1.55;
     max-width: 560px;
@@ -131,67 +143,43 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   .hero-text :global(p:last-child) {
     margin-bottom: 0;
   }
-  .links {
+  .social-row {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    flex: 1 1 220px;
-    min-width: min(220px, 100%);
-    max-width: 340px;
-  }
-  .social {
-    display: flex;
-    align-items: center;
     gap: 12px;
-    padding: 11px 18px 11px 12px;
-    border-radius: 18px;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    transition: background 0.25s;
+    margin-top: 18px;
   }
-  .social-badge {
-    width: 30px;
-    height: 30px;
+  .social-icon {
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
-    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    font-weight: 800;
+    text-decoration: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition:
+      filter 0.25s,
+      transform 0.25s;
+  }
+  .social-icon:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
   }
   .link-tg {
+    color: #2a97e1;
     background: var(--tint-tg-bg);
     border: 1px solid var(--tint-tg-line);
   }
-  .link-tg:hover {
-    filter: brightness(1.12);
-  }
-  .link-tg .social-badge {
-    background: rgba(42, 151, 225, 0.9);
-  }
   .link-yt {
+    color: #e04c4c;
     background: var(--tint-yt-bg);
     border: 1px solid var(--tint-yt-line);
   }
-  .link-yt:hover {
-    filter: brightness(1.12);
-  }
-  .link-yt .social-badge {
-    background: rgba(220, 50, 50, 0.9);
-  }
   .link-gh {
+    color: var(--fg);
     background: var(--tint-gh-bg);
     border: 1px solid var(--tint-gh-line);
-  }
-  .link-gh:hover {
-    filter: brightness(1.12);
-  }
-  .link-gh .social-badge {
-    background: rgba(130, 110, 90, 0.7);
   }
 
   .columns {

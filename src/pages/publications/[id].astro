@@ -1,13 +1,18 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getPost } from '../../lib/queries';
 import { formatDate } from '../../lib/format';
+import { tgChannelName, tgPostUrl } from '../../lib/telegram';
 
 const id = Number.parseInt(Astro.params.id ?? '', 10);
 const post = Number.isFinite(id) ? getPost(id) : undefined;
 if (!post || post.status !== 'published') {
   return new Response(null, { status: 404, statusText: 'Not found' });
 }
+
+const channelName = post.tgMessageId ? tgChannelName() : null;
+const channelPostUrl = post.tgMessageId ? tgPostUrl(post.tgMessageId) : null;
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
@@ -24,6 +29,14 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
       </div>
       <h1>{post.title}</h1>
       <div class="md-body" set:html={post.bodyHtml} />
+      {
+        channelName && channelPostUrl && (
+          <a class="tg-sync" href={channelPostUrl} target="_blank" rel="noopener noreferrer">
+            <Icon name="telegram" size={16} />
+            Публикация синхронизирована с каналом @{channelName}
+          </a>
+        )
+      }
     </article>
   </main>
 </Base>
@@ -67,5 +80,23 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     font-size: clamp(22px, 5.5vw, 28px);
     font-weight: 800;
     letter-spacing: -0.5px;
+  }
+  .tg-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 22px;
+    padding: 9px 16px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #2a97e1;
+    background: var(--badge-tg-bg);
+    border: 1px solid var(--tint-tg-line);
+    text-decoration: none;
+    transition: filter 0.25s;
+  }
+  .tg-sync:hover {
+    filter: brightness(1.12);
   }
 </style>

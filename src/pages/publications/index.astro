@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icon from '../../components/Icon.astro';
 import { getPublishedPosts } from '../../lib/queries';
 import { formatDate } from '../../lib/format';
 import { excerpt } from '../../lib/markdown';
@@ -22,6 +23,13 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
               <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
                 {p.source === 'telegram' ? 'TELEGRAM' : 'ADMIN'}
               </span>
+              {
+                p.tgMessageId && (
+                  <span class="tg-plane" title="Синхронизировано с Telegram-каналом">
+                    <Icon name="telegram" size={15} />
+                  </span>
+                )
+              }
               <span class="date">{formatDate(p.createdAt)}</span>
             </div>
             <h2>{p.title}</h2>
@@ -83,6 +91,10 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     font-size: 12.5px;
     color: var(--fg-50);
     white-space: nowrap;
+  }
+  .tg-plane {
+    display: inline-flex;
+    color: #2a97e1;
   }
   h2 {
     margin: 0 0 8px;

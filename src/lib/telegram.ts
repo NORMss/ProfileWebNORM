@@ -211,6 +211,19 @@ export async function getTelegramStatus(): Promise<TelegramStatus> {
   }
 }
 
+/** Публичное имя канала (без @) — для ссылок t.me. null, если канал приватный (-100…) или не задан. */
+export function tgChannelName(): string | null {
+  const ch = config.telegramChannel.trim();
+  if (!ch || ch.startsWith('-')) return null;
+  return ch.replace(/^@/, '');
+}
+
+/** Ссылка на конкретный пост канала: https://t.me/<канал>/<message_id>. */
+export function tgPostUrl(messageId: number): string | null {
+  const name = tgChannelName();
+  return name ? `https://t.me/${name}/${messageId}` : null;
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
