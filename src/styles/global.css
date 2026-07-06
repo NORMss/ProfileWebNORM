@@ -55,6 +55,7 @@
   --blob-a: radial-gradient(circle, hsla(50, 80%, 60%, 0.32), transparent 70%);
   --blob-b: radial-gradient(circle, hsla(110, 80%, 60%, 0.32), transparent 70%);
   --blob-c: radial-gradient(circle, hsla(-5, 80%, 60%, 0.32), transparent 70%);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 @media (prefers-color-scheme: light) {
@@ -112,6 +113,7 @@
     --blob-a: radial-gradient(circle, hsla(50, 65%, 78%, 0.6), transparent 70%);
     --blob-b: radial-gradient(circle, hsla(110, 65%, 78%, 0.6), transparent 70%);
     --blob-c: radial-gradient(circle, hsla(-5, 65%, 78%, 0.6), transparent 70%);
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(80,66,46,0.75)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   }
 }
 
@@ -136,6 +138,56 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  /* web-app feel: без задержки клика и двойного тапа-зума */
+  touch-action: manipulation;
+}
+
+/* Эффект web-приложения: никакой системной подсветки нажатий —
+   обратная связь только через ripple и анимации проекта */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+select,
+summary,
+label,
+[data-ripple] {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Контент остаётся выделяемым */
+.md-body,
+.md-body *,
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Фокус-рамка только для клавиатурной навигации, не при клике/тапе */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid rgba(157, 183, 255, 0.6);
+  outline-offset: 2px;
+}
+
+/* Выпадающие списки: своя стрелка с нормальным отступом от края */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  /* !important — чтобы стрелку не затирал шортхенд background у .glass-item и др. */
+  background-image: var(--select-arrow) !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 16px !important;
+  padding-right: 40px !important;
 }
 
 ::selection {
