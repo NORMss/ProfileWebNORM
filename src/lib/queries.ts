@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db, schema } from './db';
 
 export type Repo = typeof schema.repos.$inferSelect;
@@ -51,6 +51,35 @@ export function getIssues(repoId: number): Issue[] {
     .where(eq(schema.issues.repoId, repoId))
     .orderBy(desc(schema.issues.createdAt))
     .all();
+}
+
+/** Дата последнего релиза каждого репозитория (repoId → ISO-строка). */
+export function getLatestReleaseDates(): Map<number, string> {
+  const rows = db
+    .select({
+      repoId: schema.releases.repoId,
+      latest: sql<string>`MAX(${schema.releases.publishedAt})`,
+    })
+    .from(schema.releases)
+    .groupBy(schema.releases.repoId)
+    .all();
+  return new Map(rows.map((r) => [r.repoId, r.latest ?? '']));
+}
+
+export type ProjectsSort = 'released' | 'downloads' | 'stars';
+
+export function normalizeProjectsSort(raw: string): ProjectsSort {
+  return raw === 'downloads' || raw === 'stars' ? raw : 'released';
+}
+
+/** Сортировка списка проектов; releasedAt — из getLatestReleaseDates, фолбэк pushed_at. */
+export function sortRepos(list: Repo[], sort: ProjectsSort, releaseDates: Map<number, string>): Repo[] {
+  const released = (r: Repo) => releaseDates.get(r.id) || r.pushedAt;
+  return [...list].sort((a, b) => {
+    if (sort === 'downloads') return b.totalDownloads - a.totalDownloads;
+    if (sort === 'stars') return b.stars - a.stars;
+    return released(b).localeCompare(released(a));
+  });
 }
 
 /** Последние релизы по всем видимым проектам — для блока «Последние обновления». */

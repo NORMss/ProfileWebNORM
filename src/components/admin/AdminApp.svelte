@@ -30,6 +30,7 @@
     posts: initialPosts,
     about: initialAbout,
     avatarUrl: initialAvatarUrl,
+    projectsSort: initialProjectsSort,
     lastSync,
     tgLastImport,
   } = $props<{
@@ -37,6 +38,7 @@
     posts: PostRow[];
     about: About;
     avatarUrl: string;
+    projectsSort: string;
     lastSync: string;
     tgLastImport: { at: string; count: number } | null;
   }>();
@@ -60,6 +62,17 @@
   let uploadingCover = $state(false);
   let sendToTelegram = $state(false);
   let sendingTgId = $state<number | null>(null);
+
+  let projectsSort = $state(initialProjectsSort);
+
+  async function saveProjectsSort() {
+    try {
+      await api('/admin/api/settings', 'POST', { projects_sort: projectsSort });
+      say('Сортировка по умолчанию сохранена');
+    } catch (e) {
+      say(`Ошибка: ${e}`);
+    }
+  }
 
   function ogImage(repo: RepoRow) {
     return `https://opengraph.githubassets.com/1/${repo.fullName}`;
@@ -415,6 +428,14 @@
         </button>
       </div>
     </div>
+    <label class="sort-default">
+      Сортировка проектов по умолчанию:
+      <select bind:value={projectsSort} onchange={saveProjectsSort}>
+        <option value="released">Сначала новые релизы</option>
+        <option value="downloads">По загрузкам</option>
+        <option value="stars">По звёздам</option>
+      </select>
+    </label>
     {#if repos.length === 0}
       <p class="hint">Репозиториев нет — проверьте GITHUB_USERNAME/GITHUB_TOKEN и запустите синк.</p>
     {/if}
@@ -803,6 +824,31 @@
     border-radius: 18px;
     background: var(--glass-05);
     border: 1px solid var(--line-12);
+  }
+  .sort-default {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: var(--fg-60);
+  }
+  .sort-default select {
+    width: auto;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--line-15);
+    outline: none;
+    cursor: pointer;
+  }
+  .sort-default option {
+    color: #1a1a1a;
   }
   .row-wrap {
     border-radius: 18px;

@@ -1,10 +1,25 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { getVisibleRepos, repoImage } from '../../lib/queries';
+import {
+  getVisibleRepos,
+  getLatestReleaseDates,
+  normalizeProjectsSort,
+  repoImage,
+  sortRepos,
+} from '../../lib/queries';
+import { getSetting } from '../../lib/settings';
 import { formatCount } from '../../lib/format';
 
-const hard = getVisibleRepos('hard');
-const vibe = getVisibleRepos('vibe');
+const releaseDates = getLatestReleaseDates();
+const defaultSort = normalizeProjectsSort(getSetting('projects_sort'));
+const hard = sortRepos(getVisibleRepos('hard'), defaultSort, releaseDates);
+const vibe = sortRepos(getVisibleRepos('vibe'), defaultSort, releaseDates);
+
+const sortOptions = [
+  { value: 'released', label: 'Сначала новые релизы' },
+  { value: 'downloads', label: 'По загрузкам' },
+  { value: 'stars', label: 'По звёздам' },
+];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
@@ -23,6 +38,20 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
       </div>
     </div>
 
+    <div class="controls">
+      <input
+        id="project-search"
+        class="search glass-item"
+        type="search"
+        placeholder="Поиск по проектам…"
+        aria-label="Поиск по проектам"
+        autocomplete="off"
+      />
+      <select id="project-sort" class="sort glass-item" aria-label="Сортировка проектов">
+        {sortOptions.map((o) => <option value={o.value} selected={o.value === defaultSort}>{o.label}</option>)}
+      </select>
+    </div>
+
     {
       [
         { id: 'hard', list: hard, hidden: false },
@@ -31,7 +60,15 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
         <div class="grid" id={`grid-${id}`} role="tabpanel" hidden={hidden}>
           {list.length === 0 && <p class="empty">В этой категории пока нет проектов.</p>}
           {list.map((p) => (
-            <a class="card" href={`/projects/${p.name}`} data-ripple>
+            <a
+              class="card"
+              href={`/projects/${p.name}`}
+              data-search={`${p.name} ${p.description}`.toLowerCase()}
+              data-stars={p.stars}
+              data-downloads={p.totalDownloads}
+              data-released={releaseDates.get(p.id) || p.pushedAt}
+              data-ripple
+            >
               <img class="shot" src={repoImage(p)} alt={`Скриншот проекта ${p.name}`} loading="lazy" />
               <div class="card-info glass">
                 <div class="card-top">
@@ -45,6 +82,9 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
               </div>
             </a>
           ))}
+          <p class="empty no-results" hidden>
+            По запросу ничего не найдено.
+          </p>
         </div>
       ))
     }
@@ -52,7 +92,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 </Base>
 
 <script>
-  // Переключение вкладок Hard/Vibe без перезагрузки (списки уже в HTML).
+  // Вкладки Hard/Vibe + сортировка и поиск — всё на клиенте, списки уже в HTML.
   const tabs = [
     { btn: document.getElementById('tab-hard')!, panel: document.getElementById('grid-hard')! },
     { btn: document.getElementById('tab-vibe')!, panel: document.getElementById('grid-vibe')! },
@@ -68,6 +108,37 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     });
   }
   if (location.hash === '#vibe') tabs[1].btn.click();
+
+  const search = document.getElementById('project-search') as HTMLInputElement;
+  const sortSel = document.getElementById('project-sort') as HTMLSelectElement;
+
+  function apply() {
+    const q = search.value.trim().toLowerCase();
+    const sort = sortSel.value;
+    for (const { panel } of tabs) {
+      const cards = [...panel.querySelectorAll<HTMLElement>('.card')];
+      cards.sort((a, b) => {
+        if (sort === 'downloads') return Number(b.dataset.downloads) - Number(a.dataset.downloads);
+        if (sort === 'stars') return Number(b.dataset.stars) - Number(a.dataset.stars);
+        return (b.dataset.released ?? '').localeCompare(a.dataset.released ?? '');
+      });
+      let visible = 0;
+      for (const card of cards) {
+        panel.appendChild(card); // переставляем в отсортированном порядке
+        const hit = !q || (card.dataset.search ?? '').includes(q);
+        card.style.display = hit ? '' : 'none';
+        if (hit) visible++;
+      }
+      const noResults = panel.querySelector<HTMLElement>('.no-results');
+      if (noResults) {
+        panel.appendChild(noResults);
+        noResults.hidden = !(q && visible === 0 && cards.length > 0);
+      }
+    }
+  }
+
+  search.addEventListener('input', apply);
+  sortSel.addEventListener('change', apply);
 </script>
 
 <style>
@@ -84,7 +155,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 16px;
-    margin-bottom: 26px;
+    margin-bottom: 18px;
   }
   h1 {
     margin: 0;
@@ -117,6 +188,47 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   .tab.active {
     background: var(--active);
   }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .search {
+    flex: 1;
+    min-width: min(240px, 100%);
+    font: inherit;
+    font-size: 14px;
+    color: var(--fg);
+    padding: 11px 18px;
+    border-radius: 18px;
+    outline: none;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .search::placeholder {
+    color: var(--fg-45);
+  }
+  .search:focus {
+    border-color: rgba(157, 183, 255, 0.5);
+  }
+  .sort {
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--fg);
+    padding: 11px 14px;
+    border-radius: 18px;
+    outline: none;
+    cursor: pointer;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .sort option {
+    color: #1a1a1a;
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
@@ -129,6 +241,9 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     margin: 0;
     font-size: 14.5px;
     color: var(--fg-55);
+  }
+  .no-results {
+    grid-column: 1 / -1;
   }
   .card {
     position: relative;

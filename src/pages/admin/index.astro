@@ -34,6 +34,7 @@ const posts = getAllPosts().map((p) => ({
 }));
 const about = getAbout();
 const avatarUrl = getAvatarUrl();
+const projectsSort = getSetting('projects_sort') || 'released';
 const lastSync = getSetting('last_sync');
 let tgLastImport: { at: string; count: number } | null = null;
 try {
@@ -53,7 +54,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
       <span class="private">PRIVATE</span>
       <a class="to-site" href={config.siteUrl} target="_blank" rel="noopener">открыть сайт ↗</a>
     </div>
-    <AdminApp client:only="svelte" {repos} {posts} {about} {avatarUrl} {lastSync} {tgLastImport} />
+    <AdminApp client:only="svelte" {repos} {posts} {about} {avatarUrl} {projectsSort} {lastSync} {tgLastImport} />
   </main>
 </Base>
 
