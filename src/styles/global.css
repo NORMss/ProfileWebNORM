@@ -90,7 +90,7 @@
     --shadow-md: 0 12px 40px rgba(120, 90, 50, 0.14);
     --ripple: rgba(160, 120, 60, 0.3);
     --selection: rgba(216, 170, 100, 0.45);
-    --card-overlay: rgba(255, 250, 242, 0.94);
+    --card-overlay: #fffaf2;
     --inset-top: rgba(255, 255, 255, 0.8);
     --link: #7a5520;
     --link-underline: rgba(122, 85, 32, 0.4);
