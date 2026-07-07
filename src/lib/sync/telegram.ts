@@ -11,6 +11,13 @@ interface TgChat {
   title?: string;
 }
 
+interface TgForwardOrigin {
+  type: string;
+  chat?: TgChat;
+  message_id?: number;
+  date?: number;
+}
+
 interface TgMessage {
   message_id: number;
   date: number;
@@ -18,12 +25,15 @@ interface TgMessage {
   text?: string;
   caption?: string;
   chat: TgChat;
+  forward_origin?: TgForwardOrigin;
 }
 
 interface TgUpdate {
   update_id: number;
   channel_post?: TgMessage;
   edited_channel_post?: TgMessage;
+  /** Личные сообщения боту — используются для импорта пересланных старых постов */
+  message?: TgMessage;
 }
 
 /**
@@ -61,7 +71,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
   const offset = Number.parseInt(getSetting('tg_offset') || '0', 10);
   const params = new URLSearchParams({
     timeout: '0',
-    allowed_updates: JSON.stringify(['channel_post', 'edited_channel_post']),
+    allowed_updates: JSON.stringify(['channel_post', 'edited_channel_post', 'message']),
   });
   if (offset > 0) params.set('offset', String(offset + 1));
 
@@ -109,6 +119,48 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         })
         .run();
       imported++;
+      continue;
+    }
+
+    // Пересланный боту в личку пост канала → импорт СТАРЫХ постов,
+    // которые появились до добавления бота (getUpdates их не отдаёт).
+    // forward_origin хранит оригинальные канал, message_id и дату.
+    const fwd = upd.message;
+    if (fwd?.forward_origin) {
+      const origin = fwd.forward_origin;
+      if (
+        origin.type === 'channel' &&
+        origin.chat &&
+        origin.message_id &&
+        matchesChannel(origin.chat) &&
+        // если задан чат владельца (для бэкапов) — принимаем пересылки только от него
+        (!config.telegramBackupChatId || String(fwd.chat.id) === config.telegramBackupChatId)
+      ) {
+        const text = (fwd.text ?? fwd.caption ?? '').trim();
+        if (!text) continue;
+        const exists = db
+          .select({ id: schema.posts.id })
+          .from(schema.posts)
+          .where(eq(schema.posts.tgMessageId, origin.message_id))
+          .get();
+        if (exists) continue;
+
+        const { title, body } = splitTitleBody(text);
+        const createdAt = new Date((origin.date ?? fwd.date) * 1000).toISOString();
+        db.insert(schema.posts)
+          .values({
+            title,
+            bodyMd: body,
+            bodyHtml: renderMarkdown(body),
+            source: 'telegram',
+            status: 'published',
+            tgMessageId: origin.message_id,
+            createdAt,
+            updatedAt: createdAt,
+          })
+          .run();
+        imported++;
+      }
       continue;
     }
 
