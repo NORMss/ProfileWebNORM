@@ -19,7 +19,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 
 <Base title={`${post.title} — публикации NORMno`} active="pubs">
   <main>
-    <a class="back glass" href="/publications" data-ripple>‹ Все публикации</a>
+    <a class="back glass" href="/publications" data-ripple><span class="back-arrow">‹</span> Все публикации</a>
     <article class="glass">
       <div class="head">
         <span class:list={['badge', post.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
@@ -54,11 +54,24 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   }
   .back {
     align-self: flex-start;
-    font-size: 14px;
-    padding: 8px 18px;
-    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 11px 22px 11px 16px;
+    border-radius: 20px;
     text-decoration: none;
     background: var(--glass-07);
+    transition: background 0.25s;
+  }
+  .back:hover {
+    background: var(--glass-10);
+  }
+  .back-arrow {
+    font-size: 24px;
+    line-height: 0.8;
+    margin-top: -2px;
   }
   article {
     border-radius: 30px;

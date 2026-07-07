@@ -17,7 +17,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 
 <Base title={`${repo.name} — проекты NORMno`} description={repo.description} active="projects">
   <main>
-    <a class="back glass" href="/projects" data-ripple>‹ Все проекты</a>
+    <a class="back glass" href="/projects" data-ripple><span class="back-arrow">‹</span> Все проекты</a>
 
     <section class="glass card-main">
       <div class="top">
@@ -117,11 +117,24 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   }
   .back {
     align-self: flex-start;
-    font-size: 14px;
-    padding: 8px 18px;
-    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 11px 22px 11px 16px;
+    border-radius: 20px;
     text-decoration: none;
     background: var(--glass-07);
+    transition: background 0.25s;
+  }
+  .back:hover {
+    background: var(--glass-10);
+  }
+  .back-arrow {
+    font-size: 24px;
+    line-height: 0.8;
+    margin-top: -2px;
   }
   .card-main {
     border-radius: 30px;
