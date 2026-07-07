@@ -2,6 +2,7 @@ import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { db, schema } from '../db';
 import { config } from '../config';
 import { renderReadme } from '../markdown';
+import { setSetting } from '../settings';
 
 const API = 'https://api.github.com';
 
@@ -58,6 +59,52 @@ interface GhIssue {
   created_at: string;
   comments: number;
   pull_request?: unknown;
+}
+
+/**
+ * Тепловая карта контрибуций (как на GitHub-профиле) через GraphQL.
+ * Требует GITHUB_TOKEN; результат кладётся в settings → gh_contributions.
+ */
+async function syncContributions(): Promise<void> {
+  if (!config.githubToken) return;
+  const query = `query($login: String!) {
+    user(login: $login) {
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks { contributionDays { date contributionCount } }
+        }
+      }
+    }
+  }`;
+  const res = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.githubToken}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'normno-ru-site',
+    },
+    body: JSON.stringify({ query, variables: { login: config.githubUsername } }),
+  });
+  if (!res.ok) throw new Error(`GitHub GraphQL → ${res.status}`);
+  const data = (await res.json()) as {
+    data?: {
+      user?: {
+        contributionsCollection: {
+          contributionCalendar: {
+            totalContributions: number;
+            weeks: { contributionDays: { date: string; contributionCount: number }[] }[];
+          };
+        };
+      };
+    };
+    errors?: { message: string }[];
+  };
+  const calendar = data.data?.user?.contributionsCollection.contributionCalendar;
+  if (!calendar) throw new Error(`GitHub GraphQL: ${data.errors?.[0]?.message ?? 'нет данных'}`);
+  // Массив недель, в каждой до 7 пар [дата, число] — компактно для settings
+  const weeks = calendar.weeks.map((w) => w.contributionDays.map((d) => [d.date, d.contributionCount] as const));
+  setSetting('gh_contributions', JSON.stringify({ total: calendar.totalContributions, weeks }));
 }
 
 /** URL картинок из отрендеренного README — кандидаты в обложку проекта. */
@@ -251,6 +298,12 @@ export async function syncGithub(): Promise<{ repos: number }> {
       db.delete(schema.issues).where(inArray(schema.issues.repoId, goneIds)).run();
       db.delete(schema.releases).where(inArray(schema.releases.repoId, goneIds)).run();
     }
+  }
+
+  try {
+    await syncContributions();
+  } catch (e) {
+    console.error('[sync] contributions:', e);
   }
 
   return { repos: active.length };

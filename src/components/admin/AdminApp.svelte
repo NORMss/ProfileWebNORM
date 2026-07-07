@@ -380,6 +380,20 @@
     }
   }
 
+  let backingUp = $state(false);
+
+  async function backupNow() {
+    backingUp = true;
+    try {
+      const r = await api('/admin/api/backup', 'POST');
+      say(`Бэкап отправлен в Telegram: ${r.fileName} (${r.sizeKb} КБ)`);
+    } catch (e) {
+      say(`Ошибка бэкапа: ${e}`);
+    } finally {
+      backingUp = false;
+    }
+  }
+
   async function importTelegram() {
     importing = true;
     try {
@@ -620,6 +634,9 @@
           </button>
           <button class="btn btn-sm" onclick={checkTgStatus} disabled={tgStatusLoading}>
             {tgStatusLoading ? 'Проверка…' : '🔍 Диагностика'}
+          </button>
+          <button class="btn btn-sm" onclick={backupNow} disabled={backingUp} title="Архив БД и загруженных файлов — в личный чат с ботом">
+            {backingUp ? 'Бэкап…' : '💾 Бэкап в Telegram'}
           </button>
         </div>
         <div class="hint small">

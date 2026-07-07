@@ -35,6 +35,10 @@ export const config = {
   get telegramChannel() {
     return env('TELEGRAM_CHANNEL');
   },
+  /** Личный chat_id для ежедневных бэкапов (НЕ публичный канал!). Пусто — бэкапы выключены. */
+  get telegramBackupChatId() {
+    return env('TELEGRAM_BACKUP_CHAT_ID');
+  },
   get adminUser() {
     return env('ADMIN_USER', 'admin');
   },

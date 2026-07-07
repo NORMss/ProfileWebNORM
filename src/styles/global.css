@@ -56,6 +56,11 @@
   --blob-b: radial-gradient(circle, hsla(110, 80%, 60%, 0.32), transparent 70%);
   --blob-c: radial-gradient(circle, hsla(-5, 80%, 60%, 0.32), transparent 70%);
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --heat-0: rgba(255, 255, 255, 0.07);
+  --heat-1: rgba(139, 226, 143, 0.28);
+  --heat-2: rgba(139, 226, 143, 0.5);
+  --heat-3: rgba(139, 226, 143, 0.75);
+  --heat-4: #8be28f;
 }
 
 @media (prefers-color-scheme: light) {
@@ -114,6 +119,11 @@
     --blob-b: radial-gradient(circle, hsla(110, 65%, 78%, 0.6), transparent 70%);
     --blob-c: radial-gradient(circle, hsla(-5, 65%, 78%, 0.6), transparent 70%);
     --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(80,66,46,0.75)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    --heat-0: rgba(150, 118, 76, 0.12);
+    --heat-1: rgba(46, 122, 66, 0.25);
+    --heat-2: rgba(46, 122, 66, 0.45);
+    --heat-3: rgba(46, 122, 66, 0.7);
+    --heat-4: #2e7a42;
   }
 }
 

@@ -26,6 +26,12 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 - **Обложки проектов** — по умолчанию og-image GitHub; в админке можно выбрать
   картинку из README репозитория (хранится только URL) или загрузить свою
   (только в этом случае файл лежит на сервере, в `data/uploads`).
+- **RSS** — лента публикаций на `/rss.xml`.
+- **Тепловая карта GitHub** — контрибуции за год на главной (нужен `GITHUB_TOKEN`,
+  данные обновляются при синке).
+- **Бэкапы в Telegram** — ежедневно в 04:30 бот присылает архив БД и загруженных
+  файлов в личный чат (`TELEGRAM_BACKUP_CHAT_ID`), плюс кнопка ручного бэкапа
+  в админке. Подробности: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 - **Синк данных** — cron внутри приложения (по умолчанию раз в 30 минут) тянет GitHub REST API
   (repos, releases + download_count, stargazers, issues, README) и посты Telegram-канала
   (Bot API getUpdates) и пишет в SQLite. README рендерится `markdown-it` + `sanitize-html`
@@ -104,6 +110,7 @@ npm run dev
 | `SPOTIFY_CLIENT_ID/SECRET/REFRESH_TOKEN` | Виджет Spotify (без них виджет скрыт) |
 | `TELEGRAM_BOT_TOKEN` | Бот для импорта и публикации постов канала (бот — админ канала, см. docs/TELEGRAM.md) |
 | `TELEGRAM_CHANNEL` | `@username` канала (или `-100…`); нужен для публикации постов сайта в канал |
+| `TELEGRAM_BACKUP_CHAT_ID` | Личный chat_id для ежедневных бэкапов (пусто — выключено) |
 | `DB_PATH` | Путь к файлу SQLite |
 | `SYNC_INTERVAL_MIN` | Период синка, минут (по умолчанию 30) |
 

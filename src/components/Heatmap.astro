@@ -1,0 +1,96 @@
+---
+import { formatDate } from '../lib/format';
+
+/** Тепловая карта контрибуций GitHub: weeks — массив недель из пар [дата, число]. */
+interface Props {
+  total: number;
+  weeks: (readonly [string, number])[][];
+}
+
+const { total, weeks } = Astro.props;
+
+function level(count: number): number {
+  if (count <= 0) return 0;
+  if (count <= 3) return 1;
+  if (count <= 7) return 2;
+  if (count <= 12) return 3;
+  return 4;
+}
+
+const totalLabel = new Intl.NumberFormat('ru-RU').format(total);
+---
+
+<section class="heatmap glass">
+  <h2>
+    Активность на GitHub
+    <span class="sub">{totalLabel} контрибуций за год</span>
+  </h2>
+  <div class="scroll">
+    <div class="grid" role="img" aria-label={`Тепловая карта: ${totalLabel} контрибуций за последний год`}>
+      {
+        weeks.map((week) => (
+          <div class="week">
+            {week.map(([date, count]) => (
+              <span class={`cell l${level(count)}`} title={`${formatDate(date)} · ${count}`} />
+            ))}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .heatmap {
+    border-radius: 28px;
+    padding: clamp(18px, 4vw, 28px);
+    background: var(--glass-05);
+    box-shadow: var(--shadow-md);
+  }
+  h2 {
+    margin: 0 0 16px;
+    font-size: 19px;
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .sub {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-50);
+  }
+  .scroll {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .grid {
+    display: flex;
+    gap: 3px;
+    width: max-content;
+  }
+  .week {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    background: var(--heat-0);
+  }
+  .cell.l1 {
+    background: var(--heat-1);
+  }
+  .cell.l2 {
+    background: var(--heat-2);
+  }
+  .cell.l3 {
+    background: var(--heat-3);
+  }
+  .cell.l4 {
+    background: var(--heat-4);
+  }
+</style>

@@ -1,8 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
+import Heatmap from '../components/Heatmap.astro';
 import SpotifyWidget from '../components/SpotifyWidget.svelte';
-import { getAbout, getAboutHtml, getAvatarUrl } from '../lib/settings';
+import { getAbout, getAboutHtml, getAvatarUrl, getSetting } from '../lib/settings';
 import { getLatestUpdates, repoImage } from '../lib/queries';
 import { formatCount } from '../lib/format';
 import { getNowPlaying } from '../lib/spotify';
@@ -12,6 +13,13 @@ const aboutHtml = getAboutHtml();
 const avatarUrl = getAvatarUrl();
 const updates = getLatestUpdates(5);
 const nowPlaying = await getNowPlaying();
+
+let contributions: { total: number; weeks: (readonly [string, number])[][] } | null = null;
+try {
+  contributions = JSON.parse(getSetting('gh_contributions') || 'null');
+} catch {
+  contributions = null;
+}
 
 const links = [
   { icon: 'telegram' as const, label: 'Telegram', href: about.telegram, cls: 'link-tg' },
@@ -83,6 +91,8 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 
       <SpotifyWidget client:load initial={nowPlaying} />
     </div>
+
+    {contributions && contributions.weeks.length > 0 && <Heatmap total={contributions.total} weeks={contributions.weeks} />}
   </main>
 </Base>
 

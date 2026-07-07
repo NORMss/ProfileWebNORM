@@ -3,6 +3,7 @@ import { config } from '../config';
 import { setSetting } from '../settings';
 import { syncGithub } from './github';
 import { syncTelegram } from './telegram';
+import { runBackup } from '../backup';
 
 let running = false;
 
@@ -43,6 +44,14 @@ export function startScheduler(): void {
     void runSync();
   });
   console.log(`[sync] scheduler started: every ${every} min`);
+
+  // Ежедневный бэкап в Telegram (04:30), если задан TELEGRAM_BACKUP_CHAT_ID
+  if (config.telegramBackupChatId) {
+    cron.schedule('30 4 * * *', () => {
+      runBackup().catch((e) => console.error('[backup] failed:', e));
+    });
+    console.log('[backup] ежедневный бэкап в Telegram включён (04:30)');
+  }
 
   // Первичный синк — в фоне, не блокируя старт сервера.
   setTimeout(() => void runSync(), 3_000);

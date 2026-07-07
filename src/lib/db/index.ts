@@ -102,10 +102,13 @@ function createDb() {
   }
   const insert = sqlite.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, value);
-  return drizzle(sqlite, { schema });
+  return { orm: drizzle(sqlite, { schema }), sqlite };
 }
 
 // Один экземпляр на процесс (в dev модуль может перезагружаться — храним в globalThis).
 const globalStore = globalThis as { __siteDb?: ReturnType<typeof createDb> };
-export const db = (globalStore.__siteDb ??= createDb());
+const instance = (globalStore.__siteDb ??= createDb());
+export const db = instance.orm;
+/** Прямой доступ к better-sqlite3 — для online-backup (db.backup). */
+export const rawSqlite = instance.sqlite;
 export { schema };
