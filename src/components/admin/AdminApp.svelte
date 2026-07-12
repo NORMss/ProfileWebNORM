@@ -382,6 +382,38 @@
 
   let backingUp = $state(false);
 
+  // Массовое удаление постов
+  let selectedIds = $state(new Set<number>());
+  let bulkDeleting = $state(false);
+
+  function toggleSelect(id: number) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selectedIds = next;
+  }
+
+  function toggleSelectAll() {
+    selectedIds = selectedIds.size === posts.length ? new Set() : new Set(posts.map((p) => p.id));
+  }
+
+  async function bulkDelete() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!confirm(`Удалить выбранные посты (${ids.length} шт.)? Это действие необратимо.`)) return;
+    bulkDeleting = true;
+    try {
+      const r = await api('/admin/api/posts/bulk-delete', 'POST', { ids });
+      posts = posts.filter((p) => !selectedIds.has(p.id));
+      selectedIds = new Set();
+      say(`Удалено постов: ${r.deleted}`);
+    } catch (e) {
+      say(`Ошибка удаления: ${e}`);
+    } finally {
+      bulkDeleting = false;
+    }
+  }
+
   async function backupNow() {
     backingUp = true;
     try {
@@ -665,13 +697,40 @@
       </div>
 
       <div class="panel">
-        <h2>Все публикации</h2>
+        <div class="panel-head">
+          <h2>Все публикации</h2>
+          {#if posts.length > 0}
+            <div class="bulk-bar">
+              <label class="bulk-all">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === posts.length && posts.length > 0}
+                  indeterminate={selectedIds.size > 0 && selectedIds.size < posts.length}
+                  onchange={toggleSelectAll}
+                />
+                все
+              </label>
+              {#if selectedIds.size > 0}
+                <button class="btn btn-sm btn-danger" onclick={bulkDelete} disabled={bulkDeleting}>
+                  {bulkDeleting ? 'Удаление…' : `✕ Удалить (${selectedIds.size})`}
+                </button>
+              {/if}
+            </div>
+          {/if}
+        </div>
         {#if posts.length === 0}
           <p class="hint">Пока нет публикаций.</p>
         {/if}
         <div class="rows">
           {#each posts as p (p.id)}
-            <div class="row post-row">
+            <div class="row post-row" class:selected={selectedIds.has(p.id)}>
+              <input
+                class="post-check"
+                type="checkbox"
+                checked={selectedIds.has(p.id)}
+                onchange={() => toggleSelect(p.id)}
+                aria-label={`Выбрать «${p.title}»`}
+              />
               <span class="badge" class:badge-tg={p.source === 'telegram'}>
                 {p.source === 'telegram' ? 'TG' : 'ADM'}
               </span>
@@ -1220,6 +1279,44 @@
 
   .post-row {
     gap: 8px 10px;
+  }
+  .post-row.selected {
+    border-color: rgba(230, 100, 100, 0.5);
+  }
+  .post-check {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    accent-color: #e05c5c;
+    cursor: pointer;
+  }
+  .bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .bulk-all {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    color: var(--fg-55);
+    cursor: pointer;
+  }
+  .bulk-all input {
+    width: 16px;
+    height: 16px;
+    accent-color: #e05c5c;
+    cursor: pointer;
+  }
+  .btn-danger {
+    color: #ff9c9c;
+    background: rgba(230, 80, 80, 0.18);
+    border-color: rgba(230, 100, 100, 0.4);
+  }
+  .btn-danger:hover {
+    background: rgba(230, 80, 80, 0.3);
   }
   .post-name {
     flex: 1;

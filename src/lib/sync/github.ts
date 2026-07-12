@@ -107,6 +107,50 @@ async function syncContributions(): Promise<void> {
   setSetting('gh_contributions', JSON.stringify({ total: calendar.totalContributions, weeks }));
 }
 
+interface GhCommit {
+  commit?: { message?: string; author?: { email?: string; date?: string } };
+  author?: { login?: string } | null;
+}
+
+/** Коммит сделан с участием Claude (vibe-code): trailer Co-Authored-By, автор-бот или почта Anthropic. */
+function isClaudeCommit(c: GhCommit): boolean {
+  const message = c.commit?.message ?? '';
+  const email = c.commit?.author?.email ?? '';
+  const login = c.author?.login ?? '';
+  return /co-authored-by:[^\n]*claude/i.test(message) || /claude/i.test(login) || /@anthropic\.com$/i.test(email);
+}
+
+/**
+ * «Активность из Claude»: сколько коммитов за последний год сделано вместе
+ * с Claude. Сканируются коммиты всех репозиториев (до 300 на репозиторий);
+ * результат — settings → claude_contributions {total, byDate}.
+ */
+async function syncClaudeActivity(fullNames: string[]): Promise<void> {
+  const since = new Date(Date.now() - 366 * 86_400_000).toISOString();
+  const byDate: Record<string, number> = {};
+  let total = 0;
+  for (const full of fullNames) {
+    for (let page = 1; page <= 3; page++) {
+      let commits: GhCommit[] | null = null;
+      try {
+        commits = await gh<GhCommit[]>(`/repos/${full}/commits?since=${since}&per_page=100&page=${page}`);
+      } catch {
+        break; // пустой репозиторий отвечает 409 — просто пропускаем
+      }
+      if (!commits || commits.length === 0) break;
+      for (const c of commits) {
+        if (!isClaudeCommit(c)) continue;
+        const date = (c.commit?.author?.date ?? '').slice(0, 10);
+        if (!date) continue;
+        byDate[date] = (byDate[date] ?? 0) + 1;
+        total++;
+      }
+      if (commits.length < 100) break;
+    }
+  }
+  setSetting('claude_contributions', JSON.stringify({ total, byDate }));
+}
+
 /** URL картинок из отрендеренного README — кандидаты в обложку проекта. */
 function extractReadmeImages(readmeHtml: string, limit = 12): string[] {
   const urls = new Set<string>();
@@ -304,6 +348,11 @@ export async function syncGithub(): Promise<{ repos: number }> {
     await syncContributions();
   } catch (e) {
     console.error('[sync] contributions:', e);
+  }
+  try {
+    await syncClaudeActivity(active.map((r) => r.full_name));
+  } catch (e) {
+    console.error('[sync] claude activity:', e);
   }
 
   return { repos: active.length };

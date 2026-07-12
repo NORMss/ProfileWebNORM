@@ -1,13 +1,17 @@
 ---
 import { formatDate } from '../lib/format';
 
-/** Тепловая карта контрибуций GitHub: weeks — массив недель из пар [дата, число]. */
+/**
+ * Тепловая карта активности: weeks — календарь контрибуций GitHub,
+ * claude — карта коммитов с участием Claude (byDate: дата → число).
+ */
 interface Props {
   total: number;
   weeks: (readonly [string, number])[][];
+  claude?: { total: number; byDate: Record<string, number> } | null;
 }
 
-const { total, weeks } = Astro.props;
+const { total, weeks, claude = null } = Astro.props;
 
 function level(count: number): number {
   if (count <= 0) return 0;
@@ -17,28 +21,71 @@ function level(count: number): number {
   return 4;
 }
 
-const totalLabel = new Intl.NumberFormat('ru-RU').format(total);
+function claudeLevel(count: number): number {
+  if (count <= 0) return 0;
+  if (count <= 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 6) return 3;
+  return 4;
+}
+
+const fmt = new Intl.NumberFormat('ru-RU');
+const totalLabel = fmt.format(total);
+const claudeTotalLabel = claude ? fmt.format(claude.total) : '';
+const showToggle = claude !== null;
 ---
 
-<section class="heatmap glass">
-  <h2>
-    Активность на GitHub
-    <span class="sub">{totalLabel} контрибуций за год</span>
-  </h2>
+<section class="heatmap glass" data-view="github" id="activity-heatmap">
+  <div class="head">
+    <h2>
+      Активность на GitHub
+      <span class="sub sub-github">{totalLabel} контрибуций за год</span>
+      <span class="sub sub-claude">{claudeTotalLabel} коммитов с Claude за год</span>
+    </h2>
+    {
+      showToggle && (
+        <div class="views" role="tablist" aria-label="Источник активности">
+          <button class="view active" data-view-btn="github" data-ripple>
+            GitHub
+          </button>
+          <button class="view view-claude" data-view-btn="claude" data-ripple>
+            Claude ✨
+          </button>
+        </div>
+      )
+    }
+  </div>
   <div class="scroll">
     <div class="grid" role="img" aria-label={`Тепловая карта: ${totalLabel} контрибуций за последний год`}>
       {
         weeks.map((week) => (
           <div class="week">
-            {week.map(([date, count]) => (
-              <span class={`cell l${level(count)}`} title={`${formatDate(date)} · ${count}`} />
-            ))}
+            {week.map(([date, count]) => {
+              const claudeCount = claude?.byDate[date] ?? 0;
+              const tip =
+                `${formatDate(date)} · ${count}` + (claudeCount > 0 ? ` · с Claude: ${claudeCount}` : '');
+              return <span class={`cell l${level(count)} c${claudeLevel(claudeCount)}`} title={tip} />;
+            })}
           </div>
         ))
       }
     </div>
   </div>
 </section>
+
+<script is:inline>
+  (() => {
+    const section = document.getElementById('activity-heatmap');
+    if (!section) return;
+    const buttons = section.querySelectorAll('[data-view-btn]');
+    for (const btn of buttons) {
+      btn.addEventListener('click', () => {
+        section.dataset.view = btn.getAttribute('data-view-btn');
+        for (const b of buttons) b.classList.toggle('active', b === btn);
+      });
+    }
+  })();
+</script>
 
 <style>
   .heatmap {
@@ -47,8 +94,16 @@ const totalLabel = new Intl.NumberFormat('ru-RU').format(total);
     background: var(--glass-05);
     box-shadow: var(--shadow-md);
   }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
   h2 {
-    margin: 0 0 16px;
+    margin: 0;
     font-size: 19px;
     font-weight: 700;
     display: flex;
@@ -61,6 +116,38 @@ const totalLabel = new Intl.NumberFormat('ru-RU').format(total);
     font-weight: 500;
     color: var(--fg-50);
   }
+  .sub-claude,
+  [data-view='claude'] .sub-github {
+    display: none;
+  }
+  [data-view='claude'] .sub-claude {
+    display: inline;
+  }
+
+  .views {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--glass-07);
+    border: 1px solid var(--line-13);
+  }
+  .view {
+    font: inherit;
+    color: inherit;
+    border: none;
+    background: transparent;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .view.active {
+    background: var(--active);
+  }
+
   .scroll {
     overflow-x: auto;
     padding-bottom: 4px;
@@ -92,5 +179,22 @@ const totalLabel = new Intl.NumberFormat('ru-RU').format(total);
   }
   .cell.l4 {
     background: var(--heat-4);
+  }
+
+  /* Режим Claude: терракотовая шкала по коммитам с Claude */
+  [data-view='claude'] .cell {
+    background: var(--heat-0);
+  }
+  [data-view='claude'] .cell.c1 {
+    background: var(--claude-1);
+  }
+  [data-view='claude'] .cell.c2 {
+    background: var(--claude-2);
+  }
+  [data-view='claude'] .cell.c3 {
+    background: var(--claude-3);
+  }
+  [data-view='claude'] .cell.c4 {
+    background: var(--claude-4);
   }
 </style>

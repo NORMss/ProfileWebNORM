@@ -61,6 +61,10 @@
   --heat-2: rgba(139, 226, 143, 0.5);
   --heat-3: rgba(139, 226, 143, 0.75);
   --heat-4: #8be28f;
+  --claude-1: rgba(217, 119, 87, 0.3);
+  --claude-2: rgba(217, 119, 87, 0.55);
+  --claude-3: rgba(217, 119, 87, 0.8);
+  --claude-4: #d97757;
 }
 
 @media (prefers-color-scheme: light) {
@@ -124,6 +128,10 @@
     --heat-2: rgba(46, 122, 66, 0.45);
     --heat-3: rgba(46, 122, 66, 0.7);
     --heat-4: #2e7a42;
+    --claude-1: rgba(176, 87, 48, 0.25);
+    --claude-2: rgba(176, 87, 48, 0.45);
+    --claude-3: rgba(176, 87, 48, 0.7);
+    --claude-4: #b05730;
   }
 }
 

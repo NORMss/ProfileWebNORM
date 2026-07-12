@@ -20,6 +20,12 @@ try {
 } catch {
   contributions = null;
 }
+let claudeActivity: { total: number; byDate: Record<string, number> } | null = null;
+try {
+  claudeActivity = JSON.parse(getSetting('claude_contributions') || 'null');
+} catch {
+  claudeActivity = null;
+}
 
 const links = [
   { icon: 'telegram' as const, label: 'Telegram', href: about.telegram, cls: 'link-tg' },
@@ -92,7 +98,11 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
       <SpotifyWidget client:load initial={nowPlaying} />
     </div>
 
-    {contributions && contributions.weeks.length > 0 && <Heatmap total={contributions.total} weeks={contributions.weeks} />}
+    {
+      contributions && contributions.weeks.length > 0 && (
+        <Heatmap total={contributions.total} weeks={contributions.weeks} claude={claudeActivity} />
+      )
+    }
   </main>
 </Base>
 
