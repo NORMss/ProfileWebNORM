@@ -1,0 +1,26 @@
+# Что НЕ нужно отправлять в build-контекст.
+# Без этого файла docker копирует и node_modules (сотни МБ), и data/ —
+# сборка тормозит, кеш слоёв сбрасывается при каждой записи в БД,
+# а база с загруженными файлами попадает внутрь образа.
+node_modules
+dist
+.astro
+
+# Данные сайта живут в volume, в образе им делать нечего
+data
+
+# Секреты
+.env
+.env.*
+!.env.example
+
+# Не влияет на сборку
+.git
+.gitignore
+.github
+docs
+README.md
+docker-compose.yml
+deploy
+*.log
+.DS_Store
