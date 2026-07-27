@@ -114,26 +114,46 @@ npm run dev
 | `DB_PATH` | Путь к файлу SQLite |
 | `SYNC_INTERVAL_MIN` | Период синка, минут (по умолчанию 30) |
 
-### Как получить refresh token Spotify
+### Как подключить Spotify
 
-1. Создайте приложение на https://developer.spotify.com/dashboard, добавьте redirect URI
-   `http://127.0.0.1:8888/callback`.
-2. Откройте в браузере (подставьте свой client_id):
+Всё делается из браузера (в том числе с телефона), терминал не нужен:
 
-   ```
-   https://accounts.spotify.com/authorize?client_id=CLIENT_ID&response_type=code&redirect_uri=http://127.0.0.1:8888/callback&scope=user-read-currently-playing%20user-read-recently-played
-   ```
+1. Создайте приложение на https://developer.spotify.com/dashboard.
+2. В его настройках добавьте **Redirect URI** — адрес админки:
+   `https://admin.normno.ru/admin/spotify/callback`
+   (подставьте свой `ADMIN_DOMAIN`; точное значение показано в админке).
+3. Впишите `SPOTIFY_CLIENT_ID` и `SPOTIFY_CLIENT_SECRET` в `.env`,
+   перезапустите: `docker compose up -d --build`.
+4. Откройте админку → вкладка «Обо мне и ссылки» → **«♫ Подключить Spotify»**
+   → подтвердите доступ. Refresh token сохранится в БД автоматически,
+   `SPOTIFY_REFRESH_TOKEN` в `.env` заполнять не нужно.
 
-3. Скопируйте `code` из адресной строки и обменяйте на токены:
+Spotify принимает только HTTPS-адреса и loopback (`127.0.0.1`) — поэтому
+redirect ведёт на домен админки, где уже настроен HTTPS от Caddy.
+Для локальной разработки задайте `SPOTIFY_REDIRECT_URI=http://127.0.0.1:4321/admin/spotify/callback`
+и добавьте тот же адрес в приложение Spotify.
 
-   ```bash
-   curl -X POST https://accounts.spotify.com/api/token \
-     -u "CLIENT_ID:CLIENT_SECRET" \
-     -d grant_type=authorization_code -d code=CODE \
-     -d redirect_uri=http://127.0.0.1:8888/callback
-   ```
+<details>
+<summary>Ручной способ (если нужен токен в .env)</summary>
 
-   `refresh_token` из ответа → в `.env`.
+Откройте в браузере (подставьте свой client_id и redirect_uri из приложения),
+подтвердите доступ, скопируйте `code` из адресной строки — страница при этом
+может показать ошибку, это нормально:
+
+```
+https://accounts.spotify.com/authorize?client_id=CLIENT_ID&response_type=code&redirect_uri=REDIRECT_URI&scope=user-read-currently-playing%20user-read-recently-played
+```
+
+```bash
+curl -X POST https://accounts.spotify.com/api/token \
+  -u "CLIENT_ID:CLIENT_SECRET" \
+  -d grant_type=authorization_code -d code=CODE \
+  -d redirect_uri=REDIRECT_URI
+```
+
+`refresh_token` из ответа → в `.env` как `SPOTIFY_REFRESH_TOKEN`
+(значение из `.env` имеет приоритет над полученным через админку).
+</details>
 
 ## Структура
 

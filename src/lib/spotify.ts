@@ -1,4 +1,5 @@
 import { config } from './config';
+import { getSetting } from './settings';
 
 export interface NowPlaying {
   configured: boolean;
@@ -15,16 +16,24 @@ export interface NowPlaying {
 
 let accessToken = '';
 let accessTokenExpiresAt = 0;
+let accessTokenFor = '';
 let cached: NowPlaying | null = null;
 let cachedAt = 0;
 
 const CACHE_MS = 30_000;
 
+/** Refresh token: из .env или полученный через OAuth в админке (хранится в settings). */
+export function getRefreshToken(): string {
+  return config.spotifyRefreshToken || getSetting('spotify_refresh_token');
+}
+
 async function getAccessToken(): Promise<string> {
-  if (accessToken && Date.now() < accessTokenExpiresAt - 10_000) return accessToken;
+  const refreshToken = getRefreshToken();
+  // Токен мог смениться после переподключения в админке — тогда кеш недействителен
+  if (accessToken && accessTokenFor === refreshToken && Date.now() < accessTokenExpiresAt - 10_000) return accessToken;
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
-    refresh_token: config.spotifyRefreshToken,
+    refresh_token: refreshToken,
   });
   const basic = Buffer.from(`${config.spotifyClientId}:${config.spotifyClientSecret}`).toString('base64');
   const res = await fetch('https://accounts.spotify.com/api/token', {
@@ -39,7 +48,16 @@ async function getAccessToken(): Promise<string> {
   const data = (await res.json()) as { access_token: string; expires_in: number };
   accessToken = data.access_token;
   accessTokenExpiresAt = Date.now() + data.expires_in * 1000;
+  accessTokenFor = refreshToken;
   return accessToken;
+}
+
+/** Сбрасывает кеш после переподключения аккаунта в админке. */
+export function resetSpotifyCache(): void {
+  accessToken = '';
+  accessTokenFor = '';
+  cached = null;
+  cachedAt = 0;
 }
 
 interface SpotifyTrack {
@@ -67,7 +85,7 @@ function toTrack(item: SpotifyTrack, progressMs: number): NowPlaying['track'] {
  * Ответ кешируется на 30 секунд.
  */
 export async function getNowPlaying(): Promise<NowPlaying> {
-  if (!config.spotifyClientId || !config.spotifyClientSecret || !config.spotifyRefreshToken) {
+  if (!config.spotifyClientId || !config.spotifyClientSecret || !getRefreshToken()) {
     return { configured: false, playing: false, track: null };
   }
   if (cached && Date.now() - cachedAt < CACHE_MS) return cached;

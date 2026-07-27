@@ -31,6 +31,7 @@
     about: initialAbout,
     avatarUrl: initialAvatarUrl,
     projectsSort: initialProjectsSort,
+    spotify,
     lastSync,
     tgLastImport,
   } = $props<{
@@ -39,6 +40,7 @@
     about: About;
     avatarUrl: string;
     projectsSort: string;
+    spotify: { appConfigured: boolean; connected: boolean; redirectUri: string };
     lastSync: string;
     tgLastImport: { at: string; count: number } | null;
   }>();
@@ -611,6 +613,26 @@
       </div>
     </div>
     <button class="btn btn-primary" onclick={saveAbout}>Сохранить</button>
+
+    <div class="spotify-block">
+      <div class="spotify-title">
+        Spotify · виджет «сейчас играет»
+        <span class="chip" class:chip-on={spotify.connected}>
+          {spotify.connected ? 'подключён' : 'не подключён'}
+        </span>
+      </div>
+      {#if spotify.appConfigured}
+        <a class="btn btn-spotify" href="/admin/spotify/login">
+          {spotify.connected ? '↻ Переподключить' : '♫ Подключить Spotify'}
+        </a>
+        <div class="hint small">
+          В настройках приложения на developer.spotify.com должен быть добавлен Redirect URI:
+          <code>{spotify.redirectUri}</code>
+        </div>
+      {:else}
+        <div class="hint small">Задайте SPOTIFY_CLIENT_ID и SPOTIFY_CLIENT_SECRET в .env и перезапустите приложение.</div>
+      {/if}
+    </div>
   </section>
 {:else}
   <section class="posts-grid">
@@ -1179,6 +1201,49 @@
   }
   .about .btn-primary {
     align-self: flex-start;
+  }
+  .spotify-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line-12);
+  }
+  .spotify-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg-60);
+  }
+  .chip {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    background: var(--glass-08);
+    color: var(--fg-55);
+  }
+  .chip-on {
+    background: rgba(30, 215, 96, 0.2);
+    color: #1ed760;
+  }
+  .btn-spotify {
+    text-decoration: none;
+    color: #1ed760;
+    background: rgba(30, 215, 96, 0.16);
+    border-color: rgba(30, 215, 96, 0.4);
+  }
+  .spotify-block code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11.5px;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 6px;
+    overflow-wrap: anywhere;
   }
 
   .posts-grid {

@@ -28,6 +28,13 @@ export const config = {
   get spotifyRefreshToken() {
     return env('SPOTIFY_REFRESH_TOKEN');
   },
+  /**
+   * Redirect URI для OAuth Spotify. По умолчанию — https://<ADMIN_HOST>/admin/spotify/callback;
+   * ровно эта строка должна быть добавлена в настройках приложения на developer.spotify.com.
+   */
+  get spotifyRedirectUri() {
+    return env('SPOTIFY_REDIRECT_URI') || `https://${env('ADMIN_HOST', 'admin.localhost')}/admin/spotify/callback`;
+  },
   get telegramBotToken() {
     return env('TELEGRAM_BOT_TOKEN');
   },
