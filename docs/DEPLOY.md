@@ -258,10 +258,42 @@ docker compose build --progress=plain
    `.dockerignore` (например, локальный `node_modules` после `npm install`
    на сервере или дампы БД).
 
-**Если сервер совсем слабый**, собирайте образ не на нём: в GitHub Actions
-или на домашней машине → `docker push` в registry → на сервере
-`docker compose pull && docker compose up -d`. Тогда на VPS вообще не нужны
-Node и сборка.
+### Как понять, на каком шаге стоит
+
+```bash
+# 1. Строка с последним шагом (Step 10/16 … или #12 [build 2/3] …)
+docker compose build --progress=plain 2>&1 | tail -5
+
+# 2. Одновременно во втором терминале — что происходит с памятью
+free -h; docker stats --no-stream
+dmesg | tail -20 | grep -i "killed process"    # следы OOM-killer
+```
+
+Практически всегда «зависание» приходится на `npm ci` или `npm run build`
+и означает нехватку RAM. Лечится swap-файлом (см. пункт 1 выше) —
+или тем, что сборку вообще убирают с сервера.
+
+### Сборка вне сервера (рекомендуется для 512 МБ)
+
+В репозитории есть workflow `.github/workflows/docker-image.yml`: при пуше
+в `main` образ собирается на раннерах GitHub и публикуется в GHCR
+(`ghcr.io/normss/profilewebnorm:latest`). На VPS тогда ничего не собирается:
+
+```bash
+git pull                       # только конфиги: compose, Caddyfile
+docker compose pull            # забрать готовый образ
+docker compose up -d
+```
+
+Один раз проверьте, что образ доступен: в GitHub → Packages сделайте пакет
+**public**, либо авторизуйтесь на сервере токеном с правом `read:packages`:
+
+```bash
+echo <GITHUB_TOKEN> | docker login ghcr.io -u NORMss --password-stdin
+```
+
+Локальная сборка при этом никуда не делась — `docker compose up -d --build`
+по-прежнему собирает из исходников (например, когда правите код на сервере).
 
 ## 11. Публичные адреса
 

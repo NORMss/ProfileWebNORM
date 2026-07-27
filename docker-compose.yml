@@ -1,5 +1,9 @@
 services:
   app:
+    # Готовый образ из GitHub Actions: `docker compose pull && docker compose up -d`
+    # собирать на сервере не нужно. `docker compose up -d --build` по-прежнему
+    # собирает локально из исходников.
+    image: ghcr.io/normss/profilewebnorm:latest
     build: .
     restart: unless-stopped
     env_file: .env

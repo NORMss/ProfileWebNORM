@@ -20,6 +20,9 @@ COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 FROM deps AS build
+# Ограничиваем кучу Node: на VPS с 512 МБ сборка иначе разрастается
+# и уходит в своп — снаружи это выглядит как зависший шаг
+ENV NODE_OPTIONS=--max-old-space-size=512
 COPY . .
 RUN npm run build
 
