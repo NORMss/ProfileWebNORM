@@ -12,35 +12,36 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 ## Возможности
 
 - **Главная** — блок «обо мне» (текст в **Markdown** и ссылки редактируются в админке,
-  фото загружается там же), последние 5 релизов по всем проектам, виджет Spotify
-  (текущий трек; если ничего не играет — последний прослушанный).
-- **Проекты** — вкладки Hard Code / Vibe Code (принадлежность задаётся в админке); карточка:
-  og-image репозитория, название, описание, звёзды, суммарные загрузки. Страница проекта:
-  отрендеренный README, релизы с датами и загрузками каждого asset, кнопка «Скачать последнюю
+  фото загружается там же), минималистичные кнопки соцсетей, последние 5 релизов
+  по всем проектам, виджет Spotify (текущий трек; если ничего не играет — последний
+  прослушанный) и **тепловая карта активности** с переключателем GitHub / Claude ✨.
+- **Проекты** — вкладки Hard Code / Vibe Code, **поиск** и **сортировка** (новые релизы,
+  загрузки, звёзды; вариант по умолчанию задаётся в админке). Карточка: обложка,
+  название, описание, звёзды, суммарные загрузки. Страница проекта: отрендеренный
+  README, релизы с датами и загрузками каждого asset, кнопка «Скачать последнюю
   версию», список открытых issues.
-- **Публикации** — markdown-посты из админки и импортированные из Telegram-канала,
-  бейдж источника, сортировка по дате. Посты сайта можно публиковать и в
-  Telegram-канал (галочка при создании или кнопка «📨» у существующего поста) —
-  лента сайта и канала синхронизируется в обе стороны, без дублей.
-  Подробно про бота: [docs/TELEGRAM.md](docs/TELEGRAM.md).
+- **Публикации** — markdown-посты с картинками из админки и импортированные из
+  Telegram-канала (вместе с фото и альбомами), бейдж источника, сортировка по дате.
+  Посты сайта публикуются и в канал (rich-markdown, Bot API 10.1), правки
+  синхронизируются в обе стороны без дублей; у синхронизированных постов — синий
+  самолёт и ссылка на пост канала. Подробно: [docs/TELEGRAM.md](docs/TELEGRAM.md).
 - **Обложки проектов** — по умолчанию og-image GitHub; в админке можно выбрать
   картинку из README репозитория (хранится только URL) или загрузить свою
   (только в этом случае файл лежит на сервере, в `data/uploads`).
-- **RSS** — лента публикаций на `/rss.xml`.
-- **Тепловая карта GitHub** — контрибуции за год на главной (нужен `GITHUB_TOKEN`,
-  данные обновляются при синке).
+- **RSS** — лента публикаций на `/rss.xml` (+ автообнаружение в `<head>`).
 - **Бэкапы в Telegram** — ежедневно в 04:30 бот присылает архив БД и загруженных
   файлов в личный чат (`TELEGRAM_BACKUP_CHAT_ID`), плюс кнопка ручного бэкапа
-  в админке. Подробности: [docs/TELEGRAM.md](docs/TELEGRAM.md).
-- **Синк данных** — cron внутри приложения (по умолчанию раз в 30 минут) тянет GitHub REST API
-  (repos, releases + download_count, stargazers, issues, README) и посты Telegram-канала
-  (Bot API getUpdates) и пишет в SQLite. README рендерится `markdown-it` + `sanitize-html`
-  на этапе синка.
-- **Админка** — вкладки «Проекты GitHub» (показать/скрыть, Hard/Vibe, «Синхронизировать сейчас»),
-  «Обо мне и ссылки» (markdown-текст с превью + загрузка фото на главную),
-  «Публикации» (markdown-редактор с превью, публикация/черновик/удаление,
-  «Парсить посты из Telegram»). Загруженные файлы лежат в `data/uploads`
-  (тот же volume, что и БД — попадают в бэкап).
+  в админке.
+- **Синк данных** — cron внутри приложения (по умолчанию раз в 30 минут) тянет GitHub
+  (repos, releases + download_count, stargazers, issues, README, календарь контрибуций,
+  коммиты с участием Claude) и посты Telegram-канала и пишет в SQLite. README и посты
+  рендерятся `markdown-it` + `sanitize-html` на этапе синка — сайт **никогда** не ходит
+  во внешние API в момент запроса пользователя.
+- **Админка** — вкладки «Проекты GitHub» (видимость, Hard/Vibe, обложки, сортировка
+  по умолчанию, ручной синк), «Обо мне и ссылки» (markdown с превью, фото, подключение
+  Spotify), «Публикации» (редактор с превью и фото, отправка в Telegram, импорт,
+  массовое удаление чекбоксами, диагностика бота, ручной бэкап). Загруженные файлы —
+  в `data/uploads`, том же volume, что и БД.
 
 ## Безопасность админки: отдельный поддомен
 
@@ -69,33 +70,29 @@ npm run dev
 
 ## Деплой на VPS (Docker Compose)
 
+Полное руководство — **[docs/DEPLOY.md](docs/DEPLOY.md)**: подключение интеграций,
+бэкапы и восстановление, обновление, разбор типичных проблем. Кратко:
+
 1. Направьте DNS **A-записи** `normno.ru` и `admin.normno.ru` на IP сервера.
-2. Установите Docker + Compose-plugin (`curl -fsSL https://get.docker.com | sh`).
-3. Склонируйте репозиторий и подготовьте окружение:
+2. Установите Docker (`curl -fsSL https://get.docker.com | sh`), освободите порты 80/443.
+3. Разверните:
 
    ```bash
    git clone https://github.com/NORMss/ProfileWebNORM.git
    cd ProfileWebNORM
    cp .env.example .env
-   nano .env   # SITE_DOMAIN, ADMIN_DOMAIN, ADMIN_HOST, ADMIN_PASS, токены
-   ```
-
-4. Запуск:
-
-   ```bash
+   nano .env   # SITE_DOMAIN, ADMIN_DOMAIN, ADMIN_HOST, ADMIN_PASS, TZ, токены
    docker compose up -d --build
    ```
 
    Caddy сам выпустит HTTPS-сертификаты Let's Encrypt для обоих доменов.
 
-5. Обновление:
+4. Обновление: `git pull && docker compose up -d --build`
+   (миграции схемы применяются автоматически, данные сохраняются).
 
-   ```bash
-   git pull && docker compose up -d --build
-   ```
-
-База лежит в `./data/site.db` — **бэкап = копия одного файла**
-(`sqlite3 data/site.db ".backup backup.db"` или просто `cp` при остановленном приложении).
+Всё состояние сайта — в `./data`: `site.db` (SQLite) и `uploads/` (фото профиля,
+обложки, картинки постов). Бэкап = архив этого каталога; при заданном
+`TELEGRAM_BACKUP_CHAT_ID` бот присылает его сам каждый день.
 
 ## Переменные окружения
 
@@ -106,13 +103,16 @@ npm run dev
 | `ADMIN_HOST` | Хост админки; на других хостах `/admin` → 404 |
 | `ADMIN_USER` / `ADMIN_PASS` | Basic Auth админки (без пароля админка отключена) |
 | `GITHUB_USERNAME` | Чьи репозитории показывать |
-| `GITHUB_TOKEN` | PAT для повышения лимитов GitHub API (опционально, но рекомендуется) |
-| `SPOTIFY_CLIENT_ID/SECRET/REFRESH_TOKEN` | Виджет Spotify (без них виджет скрыт) |
+| `GITHUB_TOKEN` | Classic PAT со scope `public_repo` + `read:user`: лимиты API и тепловая карта |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Приложение Spotify (без них виджет скрыт) |
+| `SPOTIFY_REFRESH_TOKEN` | Необязательно: токен, полученный вручную (приоритетнее подключения из админки) |
+| `SPOTIFY_REDIRECT_URI` | Необязательно: переопределить redirect URI (для локальной разработки) |
 | `TELEGRAM_BOT_TOKEN` | Бот для импорта и публикации постов канала (бот — админ канала, см. docs/TELEGRAM.md) |
 | `TELEGRAM_CHANNEL` | `@username` канала (или `-100…`); нужен для публикации постов сайта в канал |
 | `TELEGRAM_BACKUP_CHAT_ID` | Личный chat_id для ежедневных бэкапов (пусто — выключено) |
 | `DB_PATH` | Путь к файлу SQLite |
 | `SYNC_INTERVAL_MIN` | Период синка, минут (по умолчанию 30) |
+| `TZ` | Часовой пояс контейнера — от него зависит время ежедневного бэкапа (04:30) |
 
 ### Как подключить Spotify
 
@@ -159,14 +159,24 @@ curl -X POST https://accounts.spotify.com/api/token \
 
 ```
 src/
-  middleware.ts        # host-gating админки + Basic Auth + запуск cron
+  middleware.ts        # host-gating админки + Basic Auth + CSRF + запуск cron
   lib/
     config.ts          # доступ к env
-    db/                # better-sqlite3 + Drizzle, DDL, дефолты
-    sync/              # github.ts, telegram.ts, планировщик
+    db/                # better-sqlite3 + Drizzle, DDL, миграции, дефолты
+    sync/              # github.ts (репозитории, контрибуции, Claude-коммиты),
+                       # telegram.ts (импорт постов и фото), планировщик
+    telegram.ts        # публикация и правка постов в канале (rich-markdown)
+    backup.ts          # снапшот БД + uploads → архив в Telegram
     spotify.ts         # now-playing с кешем 30 с
     markdown.ts        # markdown-it + sanitize-html
-  pages/               # публичные страницы, /api/now-playing, /admin/**
-  components/          # SpotifyWidget.svelte, admin/AdminApp.svelte
+  pages/
+    index/projects/publications   # публичные страницы
+    rss.xml.ts                    # RSS-лента
+    api/now-playing.ts            # JSON для виджета
+    media/**                      # отдача загруженных изображений
+    admin/**                      # админка, её API и OAuth Spotify
+  components/          # Icon, Heatmap, SpotifyWidget, admin/AdminApp
+docs/DEPLOY.md         # руководство по развертыванию
+docs/TELEGRAM.md       # бот: посты, синхронизация, бэкапы
 deploy/Caddyfile       # два домена: сайт и админка
 ```
