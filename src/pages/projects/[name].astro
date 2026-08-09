@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import DownloadMenu from '../../components/DownloadMenu.astro';
 import { getRepoByName, getReleases, getAssets, getIssues } from '../../lib/queries';
 import { formatCount, formatDate } from '../../lib/format';
 
@@ -11,6 +12,8 @@ if (!repo) {
 
 const releases = getReleases(repo.id).map((r) => ({ ...r, assets: getAssets(r.id) }));
 const issues = getIssues(repo.id);
+// Файлы последнего релиза — для выпадающего меню «Скачать последнюю версию»
+const latestAssets = releases[0]?.assets ?? [];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
@@ -30,7 +33,9 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
           </div>
         </div>
         {
-          repo.latestAssetUrl ? (
+          latestAssets.length > 0 ? (
+            <DownloadMenu assets={latestAssets} label="Скачать последнюю версию" variant="accent" />
+          ) : repo.latestAssetUrl ? (
             <a class="btn-accent" href={repo.latestAssetUrl} data-ripple>
               ⤓ Скачать последнюю версию
             </a>
@@ -57,28 +62,13 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
               <span class="row-notes">{r.name || r.notes}</span>
               <span class="row-date">{formatDate(r.publishedAt)}</span>
               <span class="row-dl">↓ {formatCount(r.downloads)}</span>
-              {r.assets.length > 0 ? (
-                <a class="row-btn" href={r.assets[0].downloadUrl} data-ripple>
-                  Скачать
-                </a>
-              ) : (
-                <a class="row-btn" href={r.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
-                  Открыть
-                </a>
-              )}
-              {r.assets.length > 1 && (
-                <details class="assets">
-                  <summary>{r.assets.length} файлов</summary>
-                  <ul>
-                    {r.assets.map((a) => (
-                      <li>
-                        <a href={a.downloadUrl}>{a.name}</a>
-                        <span class="asset-dl">↓ {formatCount(a.downloadCount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+              <DownloadMenu
+                assets={r.assets}
+                label={r.assets.length > 1 ? `Скачать · ${r.assets.length}` : 'Скачать'}
+                variant="row"
+                fallbackUrl={r.htmlUrl}
+                fallbackLabel="Открыть"
+              />
             </div>
           ))
         }
@@ -230,46 +220,6 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     color: var(--fg-60);
     flex: none;
     white-space: nowrap;
-  }
-  .row-btn {
-    font-size: 12.5px;
-    font-weight: 600;
-    white-space: nowrap;
-    padding: 7px 14px;
-    border-radius: 14px;
-    background: var(--glass-08);
-    border: 1px solid var(--line-15);
-    flex: none;
-    text-decoration: none;
-    transition: background 0.25s;
-    position: relative;
-    overflow: hidden;
-  }
-  .row-btn:hover {
-    background: var(--glass-10);
-  }
-  .assets {
-    width: 100%;
-    font-size: 13px;
-  }
-  .assets summary {
-    cursor: pointer;
-    color: var(--fg-55);
-  }
-  .assets ul {
-    margin: 8px 0 0;
-    padding-left: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .assets a {
-    color: var(--link);
-  }
-  .asset-dl {
-    margin-left: 8px;
-    color: var(--fg-50);
-    font-size: 12px;
   }
   .issue:hover {
     background: var(--glass-08);
