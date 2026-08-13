@@ -4,6 +4,7 @@ Production-сайт-портфолио с liquid-glass эстетикой: ан�
 backdrop-blur стекло, ripple-эффект на кликабельных элементах. Тёмная и светлая
 темы переключаются автоматически по теме устройства (`prefers-color-scheme`).
 В навигации — фирменный смайл; клик по нему запускает анимацию моргания (пасхалка).
+<img width="1192" height="931" alt="Screenshot 2026-08-14 at 01 21 09" src="https://github.com/user-attachments/assets/67235b19-f2a1-408e-b7c2-e96ad2779937" />
 
 **Стек:** Astro + Svelte-островки · Node 22 · SQLite (Drizzle ORM) · Caddy · Docker Compose.
 Рассчитан на слабый VPS (512 МБ RAM): всё максимально статично и кешировано, один процесс,
