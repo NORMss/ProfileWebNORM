@@ -95,13 +95,14 @@ export function getLatestUpdates(limit = 5): (Release & { repo: Repo })[] {
   return rows.map((row) => ({ ...row.releases, repo: row.repos }));
 }
 
-export function getPublishedPosts(): Post[] {
-  return db
+/** Опубликованные посты, новые сверху; limit — для блока «Последние публикации» на главной. */
+export function getPublishedPosts(limit?: number): Post[] {
+  const query = db
     .select()
     .from(schema.posts)
     .where(eq(schema.posts.status, 'published'))
-    .orderBy(desc(schema.posts.createdAt))
-    .all();
+    .orderBy(desc(schema.posts.createdAt));
+  return limit === undefined ? query.all() : query.limit(limit).all();
 }
 
 export function getAllPosts(): Post[] {

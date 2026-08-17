@@ -67,11 +67,14 @@
       <div class="meta">
         <div class="title">{data.track.title}</div>
         <div class="artist">{data.track.artist}</div>
-        {#if data.playing && data.track.durationMs > 0}
-          <div class="bar"><div class="fill" style={`width:${progress}%`}></div></div>
-        {/if}
       </div>
     </a>
+    {#if data.playing && data.track.durationMs > 0}
+      <!-- Полоска прогресса — во всю ширину виджета, под строкой трека -->
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(progress)}>
+        <div class="fill" style={`width:${progress}%`}></div>
+      </div>
+    {/if}
   </section>
 {/if}
 
@@ -166,16 +169,17 @@
     text-overflow: ellipsis;
   }
   .bar {
-    margin-top: 10px;
+    margin-top: 16px;
     height: 4px;
     border-radius: 2px;
     background: var(--line-15);
     width: 100%;
-    max-width: 170px;
+    overflow: hidden;
   }
   .fill {
-    height: 4px;
+    height: 100%;
     border-radius: 2px;
     background: var(--spotify);
+    transition: width 0.4s linear;
   }
 </style>
