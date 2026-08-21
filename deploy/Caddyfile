@@ -13,3 +13,13 @@
 	encode zstd gzip
 	reverse_proxy app:4321
 }
+
+# Дополнительные домены сайта (через пробел, например «normno.com www.normno.com»).
+# Caddy выпустит на каждый свой сертификат Let's Encrypt и отдаст 301 на канонический
+# SITE_DOMAIN — так у страниц остаётся один адрес для поиска и ссылок.
+# Значение по умолчанию — служебный .localhost: Caddy подписывает такие имена
+# внутренним сертификатом и в Let's Encrypt не ходит, поэтому пустой
+# ALIAS_DOMAINS ничего не ломает.
+{$ALIAS_DOMAINS:alias.localhost} {
+	redir https://{$SITE_DOMAIN:normno.ru}{uri} permanent
+}

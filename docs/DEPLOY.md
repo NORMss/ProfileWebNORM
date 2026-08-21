@@ -32,6 +32,58 @@ admin.normno.ru  A    203.0.113.10
 вернуть IP сервера. Поддомен админки нужен обязательно — на основном домене
 `/admin` отдаёт 404 (см. [раздел 8](#8-безопасность)).
 
+Второй корневой домен (`normno.com` и т. п.) добавляется отдельно —
+см. [2.1](#21-дополнительный-домен-например-normnocom).
+
+### 2.1. Дополнительный домен (например `normno.com`)
+
+Второй корневой домен добавляется одной переменной — сертификат Caddy выпустит
+сам, ничего вручную запрашивать не нужно.
+
+1. **A-записи** нового домена (и `www`, если он нужен) → тот же IP сервера:
+
+   ```
+   normno.com        A    203.0.113.10
+   www.normno.com    A    203.0.113.10
+   ```
+
+   Дождитесь обновления DNS: `dig +short normno.com` должен вернуть IP сервера.
+   Пока запись не резолвится, Let's Encrypt не подтвердит владение доменом.
+
+2. В `.env` перечислите домены через пробел:
+
+   ```env
+   ALIAS_DOMAINS=normno.com www.normno.com
+   ```
+
+3. Примените конфиг:
+
+   ```bash
+   docker compose up -d          # пересоздаст только caddy
+   docker compose logs caddy | grep -i "certificate obtained"
+   curl -sI https://normno.com | head -1     # HTTP/2 301
+   ```
+
+Домены из `ALIAS_DOMAINS` отдают **301** на канонический `SITE_DOMAIN`: у страниц
+остаётся один адрес для поиска и ссылок, а сертификат есть у каждого домена
+(без него браузер покажет предупреждение ещё до редиректа).
+
+**Если новый домен должен стать основным.** Поменяйте местами значения и
+обновите адреса, которые уходят наружу:
+
+```env
+SITE_URL=https://normno.com
+SITE_DOMAIN=normno.com
+ALIAS_DOMAINS=normno.ru www.normno.ru www.normno.com
+ADMIN_DOMAIN=admin.normno.com
+ADMIN_HOST=admin.normno.com
+```
+
+Тогда же: A-запись `admin.normno.com`, новый Redirect URI
+`https://admin.normno.com/admin/spotify/callback` в приложении Spotify
+(старый можно удалить после проверки) и `docker compose up -d` — `SITE_URL`
+подставляется в RSS и в ссылки постов, публикуемых в Telegram.
+
 ## 3. Подготовка сервера
 
 ```bash
@@ -200,6 +252,8 @@ docker compose up -d --build
 | --- | --- |
 | `curl: (35) tlsv1 alert internal error`, сертификат не выдаётся | На 80/443 сидит другой сервис. Проверьте `ss -tlnp \| grep -E ':(80\|443)'` и `docker compose ps` — контейнер `caddy` будет в Exited. Освободите порты и `docker compose up -d` |
 | Сертификат не выдаётся, порты свободны | DNS ещё не обновился (`dig +short normno.ru`) или провайдер блокирует 80/443 |
+| Новый домен из `ALIAS_DOMAINS` открывается без HTTPS или с чужим сертификатом | Сертификат ещё не выпущен: `docker compose logs caddy \| grep -i acme` покажет причину — чаще всего A-запись домена смотрит не на этот сервер |
+| `server block without any key is global configuration` в логах caddy | В `.env` пустой `ALIAS_DOMAINS`, а compose запускается не из каталога проекта (подстановка `${ALIAS_DOMAINS:-alias.localhost}` не сработала). Запускайте `docker compose` из корня репозитория или уберите строку `ALIAS_DOMAINS=` из `.env` |
 | Пустой список проектов | Проверьте `GITHUB_USERNAME`, нажмите «Синхронизировать сейчас», смотрите `docker compose logs app \| grep sync` |
 | Нет тепловой карты | Нет `GITHUB_TOKEN` или он без `read:user` (нужен classic-токен) |
 | Импорт Telegram не видит посты | «🔍 Диагностика» в админке: установленный webhook блокирует getUpdates; для приватного канала нужен числовой id; посты старше 24 ч и до добавления бота — только пересылкой |
@@ -306,3 +360,4 @@ echo <GITHUB_TOKEN> | docker login ghcr.io -u NORMss --password-stdin
 | `/api/now-playing` | JSON текущего трека (кеш 30 с) |
 | `/media/avatar`, `/media/cover/<id>`, `/media/post/<file>` | Загруженные изображения |
 | `https://<ADMIN_HOST>/admin` | Админка (Basic Auth, только этот хост) |
+| `https://<домен из ALIAS_DOMAINS>/*` | 301 на `SITE_DOMAIN`; сертификат есть у каждого домена |

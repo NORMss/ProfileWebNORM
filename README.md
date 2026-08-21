@@ -105,6 +105,7 @@ npm run dev
 | --- | --- |
 | `SITE_URL` | Публичный адрес сайта (для ссылок) |
 | `SITE_DOMAIN` / `ADMIN_DOMAIN` | Домены для Caddy |
+| `ALIAS_DOMAINS` | Дополнительные домены через пробел: свой сертификат у каждого, 301 на `SITE_DOMAIN` ([DEPLOY 2.1](docs/DEPLOY.md#21-дополнительный-домен-например-normnocom)) |
 | `ADMIN_HOST` | Хост админки; на других хостах `/admin` → 404 |
 | `ADMIN_USER` / `ADMIN_PASS` | Basic Auth админки (без пароля админка отключена) |
 | `GITHUB_USERNAME` | Чьи репозитории показывать |
@@ -183,5 +184,5 @@ src/
   components/          # Icon, Heatmap, SpotifyWidget, admin/AdminApp
 docs/DEPLOY.md         # руководство по развертыванию
 docs/TELEGRAM.md       # бот: посты, синхронизация, бэкапы
-deploy/Caddyfile       # два домена: сайт и админка
+deploy/Caddyfile       # домены: сайт, админка, алиасы с 301
 ```

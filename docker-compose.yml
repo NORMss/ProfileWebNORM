@@ -23,6 +23,11 @@ services:
       - '80:80'
       - '443:443'
     env_file: .env
+    environment:
+      # Пустой ALIAS_DOMAINS в .env сломал бы Caddyfile (блок сайта без адреса),
+      # поэтому подставляем служебный .localhost: такие имена Caddy подписывает
+      # внутренним сертификатом и в Let's Encrypt за ними не ходит.
+      ALIAS_DOMAINS: ${ALIAS_DOMAINS:-alias.localhost}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
