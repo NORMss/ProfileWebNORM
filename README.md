@@ -1,4 +1,4 @@
-# normno.ru — сайт-портфолио
+# normno.com — сайт-портфолио
 
 Production-сайт-портфолио с liquid-glass эстетикой: анимированные blob-фоны,
 backdrop-blur стекло, ripple-эффект на кликабельных элементах. Тёмная и светлая
@@ -54,7 +54,7 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 
 1. `/admin*` отвечает **404** на основном домене — и в приложении (middleware проверяет `Host`),
    и в Caddy (запросы к `/admin*` на основном домене вообще не проксируются);
-2. админка открывается только с поддомена из `ADMIN_HOST` (например `admin.normno.ru`)
+2. админка открывается только с поддомена из `ADMIN_HOST` (например `admin.normno.com`)
    и закрыта **Basic Auth** (`ADMIN_USER` / `ADMIN_PASS` из `.env`);
 3. в публичной навигации ссылки на админку нет, `robots.txt` и `X-Robots-Tag` запрещают индексацию.
 
@@ -78,7 +78,7 @@ npm run dev
 Полное руководство — **[docs/DEPLOY.md](docs/DEPLOY.md)**: подключение интеграций,
 бэкапы и восстановление, обновление, разбор типичных проблем. Кратко:
 
-1. Направьте DNS **A-записи** `normno.ru` и `admin.normno.ru` на IP сервера.
+1. Направьте DNS **A-записи** `normno.com` и `admin.normno.com` на IP сервера.
 2. Установите Docker (`curl -fsSL https://get.docker.com | sh`), освободите порты 80/443.
 3. Разверните:
 
@@ -105,7 +105,7 @@ npm run dev
 | --- | --- |
 | `SITE_URL` | Публичный адрес сайта (для ссылок) |
 | `SITE_DOMAIN` / `ADMIN_DOMAIN` | Домены для Caddy |
-| `ALIAS_DOMAINS` | Дополнительные домены через пробел: свой сертификат у каждого, 301 на `SITE_DOMAIN` ([DEPLOY 2.1](docs/DEPLOY.md#21-дополнительный-домен-например-normnocom)) |
+| `ALIAS_DOMAINS` | Дополнительные домены через пробел: свой сертификат у каждого, 301 на `SITE_DOMAIN` ([DEPLOY 2.1](docs/DEPLOY.md#21-дополнительные-домены-алиасы)) |
 | `ADMIN_HOST` | Хост админки; на других хостах `/admin` → 404 |
 | `ADMIN_USER` / `ADMIN_PASS` | Basic Auth админки (без пароля админка отключена) |
 | `GITHUB_USERNAME` | Чьи репозитории показывать |
@@ -126,7 +126,7 @@ npm run dev
 
 1. Создайте приложение на https://developer.spotify.com/dashboard.
 2. В его настройках добавьте **Redirect URI** — адрес админки:
-   `https://admin.normno.ru/admin/spotify/callback`
+   `https://admin.normno.com/admin/spotify/callback`
    (подставьте свой `ADMIN_DOMAIN`; точное значение показано в админке).
 3. Впишите `SPOTIFY_CLIENT_ID` и `SPOTIFY_CLIENT_SECRET` в `.env`,
    перезапустите: `docker compose up -d --build`.
@@ -185,4 +185,5 @@ src/
 docs/DEPLOY.md         # руководство по развертыванию
 docs/TELEGRAM.md       # бот: посты, синхронизация, бэкапы
 deploy/Caddyfile       # домены: сайт, админка, алиасы с 301
+deploy/local/          # свои блоки Caddy для этого сервера (не в git)
 ```

@@ -45,7 +45,7 @@ export async function runBackup(): Promise<{ sizeBytes: number; fileName: string
 
     const form = new FormData();
     form.append('chat_id', chatId);
-    form.append('caption', `💾 Бэкап normno.ru · ${new Date().toLocaleString('ru-RU')} · ${(stat.size / 1024).toFixed(0)} КБ`);
+    form.append('caption', `💾 Бэкап normno.com · ${new Date().toLocaleString('ru-RU')} · ${(stat.size / 1024).toFixed(0)} КБ`);
     form.append('document', new Blob([fs.readFileSync(archivePath)], { type: 'application/gzip' }), fileName);
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: 'POST', body: form });

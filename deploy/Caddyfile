@@ -1,25 +1,30 @@
 # Публичный сайт: админка сюда не проксируется вовсе (защита в дополнение к 404 в приложении)
-{$SITE_DOMAIN:normno.ru} {
+{$SITE_DOMAIN:normno.com} {
 	encode zstd gzip
 
 	@admin path /admin /admin/*
 	respond @admin 404
 
-	reverse_proxy app:4321
+	reverse_proxy site-app:4321
 }
 
 # Отдельный поддомен для админки (Basic Auth проверяет само приложение)
-{$ADMIN_DOMAIN:admin.normno.ru} {
+{$ADMIN_DOMAIN:admin.normno.com} {
 	encode zstd gzip
-	reverse_proxy app:4321
+	reverse_proxy site-app:4321
 }
 
-# Дополнительные домены сайта (через пробел, например «normno.com www.normno.com»).
+# Дополнительные домены сайта (через пробел, например «normno.ru www.normno.com»).
 # Caddy выпустит на каждый свой сертификат Let's Encrypt и отдаст 301 на канонический
 # SITE_DOMAIN — так у страниц остаётся один адрес для поиска и ссылок.
 # Значение по умолчанию — служебный .localhost: Caddy подписывает такие имена
 # внутренним сертификатом и в Let's Encrypt не ходит, поэтому пустой
 # ALIAS_DOMAINS ничего не ломает.
 {$ALIAS_DOMAINS:alias.localhost} {
-	redir https://{$SITE_DOMAIN:normno.ru}{uri} permanent
+	redir https://{$SITE_DOMAIN:normno.com}{uri} permanent
 }
+
+# Свои блоки (другие приложения на этом же сервере) — в ./deploy/local/*.caddy.
+# Каталог не в git, поэтому `git pull` не конфликтует с локальными правками;
+# если файлов нет, import по маске просто ничего не делает.
+import /etc/caddy/local/*.caddy

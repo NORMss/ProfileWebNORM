@@ -1,4 +1,4 @@
-# Деплой normno.ru на VPS
+# Деплой normno.com на VPS
 
 Пошаговое руководство: от чистого сервера до работающего сайта со всеми
 интеграциями (GitHub, Telegram, Spotify, бэкапы).
@@ -13,7 +13,7 @@
 | Обязательно | Опционально (можно добавить позже) |
 | --- | --- |
 | VPS с Docker | GitHub PAT — лимиты API и тепловая карта |
-| Два домена: `normno.ru` и `admin.normno.ru` | Telegram-бот — импорт/публикация постов, бэкапы |
+| Два домена: `normno.com` и `admin.normno.com` | Telegram-бот — импорт/публикация постов, бэкапы |
 | Пароль для админки | Spotify-приложение — виджет «сейчас играет» |
 
 Без опциональных ключей сайт работает: проекты тянутся из публичного API
@@ -24,36 +24,40 @@ GitHub, виджет Spotify и тепловая карта просто не п
 Заведите две **A-записи** на IP сервера:
 
 ```
-normno.ru        A    203.0.113.10
-admin.normno.ru  A    203.0.113.10
+normno.com        A    203.0.113.10
+admin.normno.com  A    203.0.113.10
 ```
 
-Проверка: `dig +short normno.ru` и `dig +short admin.normno.ru` должны
+Проверка: `dig +short normno.com` и `dig +short admin.normno.com` должны
 вернуть IP сервера. Поддомен админки нужен обязательно — на основном домене
 `/admin` отдаёт 404 (см. [раздел 8](#8-безопасность)).
 
-Второй корневой домен (`normno.com` и т. п.) добавляется отдельно —
-см. [2.1](#21-дополнительный-домен-например-normnocom).
+Каждый домен и поддомен — **отдельная A-запись**: wildcard `*.normno.com`
+по умолчанию никто не заводит, а без записи браузер отдаст
+`ERR_NAME_NOT_RESOLVED` ещё до того, как запрос дойдёт до сервера.
 
-### 2.1. Дополнительный домен (например `normno.com`)
+Дополнительные домены (старый `normno.ru`, `www`) — см. [2.1](#21-дополнительные-домены-алиасы).
 
-Второй корневой домен добавляется одной переменной — сертификат Caddy выпустит
-сам, ничего вручную запрашивать не нужно.
+### 2.1. Дополнительные домены (алиасы)
 
-1. **A-записи** нового домена (и `www`, если он нужен) → тот же IP сервера:
+Любой домен, кроме основного, добавляется одной переменной — сертификат Caddy
+выпустит сам, ничего вручную запрашивать не нужно.
+
+1. **A-записи** каждого домена → тот же IP сервера:
 
    ```
-   normno.com        A    203.0.113.10
-   www.normno.com    A    203.0.113.10
+   normno.ru        A    203.0.113.10
+   www.normno.com   A    203.0.113.10
    ```
 
-   Дождитесь обновления DNS: `dig +short normno.com` должен вернуть IP сервера.
-   Пока запись не резолвится, Let's Encrypt не подтвердит владение доменом.
+   Дождитесь обновления DNS: `dig +short normno.ru @1.1.1.1` должен вернуть IP
+   сервера. Пока запись не резолвится (или ведёт на старый хостинг), Let's Encrypt
+   не подтвердит владение доменом, и в логах caddy будет бесконечный ретрай ACME.
 
 2. В `.env` перечислите домены через пробел:
 
    ```env
-   ALIAS_DOMAINS=normno.com www.normno.com
+   ALIAS_DOMAINS=normno.ru www.normno.ru www.normno.com
    ```
 
 3. Примените конфиг:
@@ -61,15 +65,20 @@ admin.normno.ru  A    203.0.113.10
    ```bash
    docker compose up -d          # пересоздаст только caddy
    docker compose logs caddy | grep -i "certificate obtained"
-   curl -sI https://normno.com | head -1     # HTTP/2 301
+   curl -sI https://normno.ru | head -1     # HTTP/2 301
    ```
 
-Домены из `ALIAS_DOMAINS` отдают **301** на канонический `SITE_DOMAIN`: у страниц
-остаётся один адрес для поиска и ссылок, а сертификат есть у каждого домена
-(без него браузер покажет предупреждение ещё до редиректа).
+Домены из `ALIAS_DOMAINS` отдают **301** на канонический `SITE_DOMAIN` с
+сохранением пути и query: у страниц остаётся один адрес для поиска и ссылок,
+а сертификат есть у каждого домена (без него браузер покажет предупреждение
+ещё до редиректа).
 
-**Если новый домен должен стать основным.** Поменяйте местами значения и
-обновите адреса, которые уходят наружу:
+`ALIAS_DOMAINS` работает только с перечисленными в нём хостами. Поддомены,
+занятые другими приложениями (`app.example.ru`), вписывать в него нельзя —
+они уедут в редирект на сайт; для них — [раздел 2.2](#22-другое-приложение-на-этом-же-сервере).
+
+**Смена основного домена.** Поменяйте местами значения и обновите адреса,
+которые уходят наружу:
 
 ```env
 SITE_URL=https://normno.com
@@ -79,10 +88,67 @@ ADMIN_DOMAIN=admin.normno.com
 ADMIN_HOST=admin.normno.com
 ```
 
-Тогда же: A-запись `admin.normno.com`, новый Redirect URI
-`https://admin.normno.com/admin/spotify/callback` в приложении Spotify
-(старый можно удалить после проверки) и `docker compose up -d` — `SITE_URL`
-подставляется в RSS и в ссылки постов, публикуемых в Telegram.
+`ADMIN_HOST` обязан совпадать с `ADMIN_DOMAIN`: Caddy проксирует админку по
+первому, приложение сверяет `Host` со вторым — при расхождении админка отдаст
+404. Тогда же: A-запись `admin.normno.com`, новый Redirect URI
+`https://admin.normno.com/admin/spotify/callback` в приложении Spotify (старый
+можно удалить после проверки) и `docker compose up -d` — `SITE_URL`
+подставляется в RSS и в ссылки постов, публикуемых в Telegram. Пересборка не
+нужна: значения читаются из окружения в рантайме.
+
+Старые A-записи после переезда **не удаляйте** — на них держится 301 для
+внешних ссылок и поисковой выдачи.
+
+### 2.2. Другое приложение на этом же сервере
+
+Порты 80/443 занимает один Caddy — тот, что поднят этим compose-проектом.
+Второй reverse-proxy рядом не поднимется, поэтому соседние приложения
+обслуживает этот же контейнер: свои блоки кладутся в `deploy/local/*.caddy`
+(каталог не в git, подключается через `import`), а сеть добавляется в
+`docker-compose.override.yml` (тоже не в git, compose подхватывает его сам).
+
+```yaml
+# docker-compose.override.yml
+services:
+  caddy:
+    networks:
+      - default              # обязательно: иначе caddy потеряет сам сайт
+      - othernet
+
+networks:
+  othernet:
+    external: true
+    name: <сеть чужого проекта>      # docker ps → колонка NETWORKS
+```
+
+```caddy
+# deploy/local/app.caddy
+app.example.com {
+	reverse_proxy <имя_контейнера>:8000
+}
+
+app.example.ru {
+	redir https://app.example.com{uri} permanent
+}
+```
+
+⚠️ Апстрим указывайте **именем контейнера** (`docker ps`, например
+`myapp-app-1`), а не именем сервиса из чужого compose-файла: имена
+сервисов у разных проектов часто совпадают (`app`, `web`, `api`), и встроенный
+DNS Docker вернёт непредсказуемый контейнер. Сайт из этого репозитория по той
+же причине проксируется по уникальному алиасу `site-app`, а не по `app`.
+
+Проверка:
+
+```bash
+docker compose up -d
+docker compose exec caddy nslookup <имя_контейнера>    # резолвится?
+docker compose exec caddy wget -qO- http://<имя_контейнера>:8000/ | head -c 200
+docker compose exec caddy nslookup site-app            # сайт не перебит чужим app
+```
+
+`server misbehaving` или `SERVFAIL` от `127.0.0.11:53` в логах caddy означает,
+что имени нет в его сетях: контейнер лежит, имя другое или сеть не подключена.
 
 ## 3. Подготовка сервера
 
@@ -111,10 +177,10 @@ nano .env
 Минимум для первого запуска:
 
 ```env
-SITE_URL=https://normno.ru
-SITE_DOMAIN=normno.ru
-ADMIN_DOMAIN=admin.normno.ru
-ADMIN_HOST=admin.normno.ru
+SITE_URL=https://normno.com
+SITE_DOMAIN=normno.com
+ADMIN_DOMAIN=admin.normno.com
+ADMIN_HOST=admin.normno.com
 ADMIN_USER=admin
 ADMIN_PASS=длинный-случайный-пароль
 GITHUB_USERNAME=NORMss
@@ -132,7 +198,7 @@ docker compose up -d --build
 
 ```bash
 docker compose logs caddy | grep -i "certificate obtained"
-curl -sI https://normno.ru | head -1
+curl -sI https://normno.com | head -1
 ```
 
 Через несколько секунд после старта приложение делает первый синк с GitHub —
@@ -180,7 +246,7 @@ Personal access tokens → Tokens (classic) → Generate new token, отметь
 ### 5.3. Spotify (виджет «сейчас играет»)
 
 1. Создайте приложение на https://developer.spotify.com/dashboard.
-2. Добавьте **Redirect URI**: `https://admin.normno.ru/admin/spotify/callback`
+2. Добавьте **Redirect URI**: `https://admin.normno.com/admin/spotify/callback`
    (точная строка показана в админке).
 3. `SPOTIFY_CLIENT_ID` и `SPOTIFY_CLIENT_SECRET` → в `.env`, `docker compose up -d`.
 4. Админка → «Обо мне и ссылки» → **«♫ Подключить Spotify»**.
@@ -189,7 +255,7 @@ Refresh token сохранится в БД — вручную его получ�
 
 ## 6. Наполнение сайта
 
-Всё делается в админке `https://admin.normno.ru/admin` (Basic Auth):
+Всё делается в админке `https://admin.normno.com/admin` (Basic Auth):
 
 | Вкладка | Что настраивается |
 | --- | --- |
@@ -251,7 +317,7 @@ docker compose up -d --build
 | Симптом | Причина и решение |
 | --- | --- |
 | `curl: (35) tlsv1 alert internal error`, сертификат не выдаётся | На 80/443 сидит другой сервис. Проверьте `ss -tlnp \| grep -E ':(80\|443)'` и `docker compose ps` — контейнер `caddy` будет в Exited. Освободите порты и `docker compose up -d` |
-| Сертификат не выдаётся, порты свободны | DNS ещё не обновился (`dig +short normno.ru`) или провайдер блокирует 80/443 |
+| Сертификат не выдаётся, порты свободны | DNS ещё не обновился (`dig +short normno.com`) или провайдер блокирует 80/443 |
 | Новый домен из `ALIAS_DOMAINS` открывается без HTTPS или с чужим сертификатом | Сертификат ещё не выпущен: `docker compose logs caddy \| grep -i acme` покажет причину — чаще всего A-запись домена смотрит не на этот сервер |
 | `server block without any key is global configuration` в логах caddy | В `.env` пустой `ALIAS_DOMAINS`, а compose запускается не из каталога проекта (подстановка `${ALIAS_DOMAINS:-alias.localhost}` не сработала). Запускайте `docker compose` из корня репозитория или уберите строку `ALIAS_DOMAINS=` из `.env` |
 | Пустой список проектов | Проверьте `GITHUB_USERNAME`, нажмите «Синхронизировать сейчас», смотрите `docker compose logs app \| grep sync` |
