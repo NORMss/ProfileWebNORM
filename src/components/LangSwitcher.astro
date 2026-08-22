@@ -1,0 +1,85 @@
+---
+import { LANG_QUERY, localePath, otherLang, type Lang } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
+
+/**
+ * Круглая кнопка перевода страницы на противоположный язык.
+ * Обычная ссылка: работает без JS, а middleware по ?hl= запоминает выбор
+ * в куки, чтобы автоопределение языка больше не перебрасывало посетителя.
+ */
+interface Props {
+  lang: Lang;
+  /** Путь без языкового префикса. */
+  path: string;
+}
+
+const { lang, path } = Astro.props;
+const target = otherLang(lang);
+const href = `${localePath(path, target)}?${LANG_QUERY}=${target}`;
+const label = t(lang, 'lang.switchTo');
+---
+
+<a class="lang-switch" href={href} title={label} aria-label={label} hreflang={target} rel="alternate" data-ripple>
+  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"></circle>
+    <path d="M3.2 9.5h17.6M3.2 14.5h17.6"></path>
+    <path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"></path>
+  </svg>
+  <span class="code">{target.toUpperCase()}</span>
+</a>
+
+<style>
+  .lang-switch {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 60;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    text-decoration: none;
+    color: var(--fg);
+    background: var(--glass-07);
+    border: 1px solid var(--line-14);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow:
+      0 8px 28px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 var(--inset-top);
+    overflow: hidden;
+    transition:
+      transform 0.25s,
+      background 0.25s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .lang-switch:hover {
+    background: var(--glass-10);
+    transform: translateY(-2px);
+  }
+  .lang-switch svg {
+    display: block;
+    margin-top: 1px;
+  }
+  .code {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    line-height: 1;
+    color: var(--fg-65);
+  }
+  @media (max-width: 480px) {
+    .lang-switch {
+      width: 46px;
+      height: 46px;
+    }
+    .lang-switch svg {
+      width: 19px;
+      height: 19px;
+    }
+  }
+</style>

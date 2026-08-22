@@ -3,6 +3,9 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
 import { editPostInTelegram } from '../../../../lib/telegram';
+import { autoTranslateOnPublish, dropTranslations } from '../../../../lib/translate';
+import { translatePostAfterPublish } from '../../../../lib/translate/content';
+import { pingIndexNowInBackground } from '../../../../lib/indexnow';
 
 function parseId(raw: string | undefined): number | null {
   const id = Number.parseInt(raw ?? '', 10);
@@ -27,6 +30,12 @@ export const PUT: APIRoute = async ({ params, request }) => {
   let telegramError: string | null = null;
   const contentChanged = set.title !== undefined || set.bodyMd !== undefined;
   const post = db.select().from(schema.posts).where(eq(schema.posts.id, id)).get();
+
+  // Текст изменился → старый перевод устарел, переводим заново в фоне
+  if (post && post.status === 'published' && contentChanged && autoTranslateOnPublish()) {
+    translatePostAfterPublish(post);
+    pingIndexNowInBackground([`/publications/${id}`]);
+  }
   if (contentChanged && post?.tgMessageId) {
     try {
       await editPostInTelegram(id);
@@ -41,5 +50,6 @@ export const DELETE: APIRoute = async ({ params }) => {
   const id = parseId(params.id);
   if (id === null) return Response.json({ ok: false, error: 'Неверный id' }, { status: 400 });
   db.delete(schema.posts).where(eq(schema.posts.id, id)).run();
+  dropTranslations('post', id);
   return Response.json({ ok: true });
 };

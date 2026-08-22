@@ -6,15 +6,27 @@ import SpotifyWidget from '../components/SpotifyWidget.svelte';
 import { getAbout, getAboutHtml, getAvatarUrl, getSetting } from '../lib/settings';
 import { getLatestUpdates, getPublishedPosts, repoImage } from '../lib/queries';
 import { formatCount, formatDate } from '../lib/format';
-import { excerpt } from '../lib/markdown';
 import { getNowPlaying } from '../lib/spotify';
+import { localePath } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
+import { localizeAbout, localizePostCards, localizeRepoDescriptions } from '../lib/translate/content';
+import { personJsonLd, webSiteJsonLd } from '../lib/seo';
 
+const lang = Astro.locals.lang;
 const about = getAbout();
-const aboutHtml = getAboutHtml();
 const avatarUrl = getAvatarUrl();
 const updates = getLatestUpdates(3);
 const posts = getPublishedPosts(3);
 const nowPlaying = await getNowPlaying();
+
+// Перевод главной: блок «обо мне», описания проектов и карточки публикаций.
+// Всё берётся из кеша, а недостающее переводится один раз при первом заходе.
+const aboutHtml = await localizeAbout(getAboutHtml(), lang);
+const repoDescriptions = await localizeRepoDescriptions(
+  updates.map((u) => u.repo),
+  lang,
+);
+const postCards = await localizePostCards(posts, lang);
 
 let contributions: { total: number; weeks: (readonly [string, number])[][] } | null = null;
 try {
@@ -35,14 +47,22 @@ const links = [
   { icon: 'github' as const, label: 'GitHub', href: about.github, cls: 'link-gh' },
 ].filter((l) => l.href);
 
+const jsonLd = [personJsonLd(lang, about), webSiteJsonLd(lang)];
+
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
 
-<Base title="NORMno — портфолио и проекты на KMP" active="home">
+<Base
+  title={t(lang, 'home.title')}
+  description={t(lang, 'home.description')}
+  active="home"
+  jsonLd={jsonLd}
+  machineTranslated={lang !== 'ru'}
+>
   <main>
     <section class="hero glass">
       <div class="hero-row">
-        <img class="avatar" src={avatarUrl} alt="Фото NORMno" width="104" height="104" />
+        <img class="avatar" src={avatarUrl} alt={t(lang, 'home.avatarAlt')} width="104" height="104" />
         <div class="hero-body">
           <div class="hero-text md-body" set:html={aboutHtml} />
           <div class="social-row">
@@ -68,27 +88,29 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 
     <div class="columns">
       <section class="updates glass">
-        <h2>Последние обновления <span class="sub">releases · GitHub</span></h2>
+        <h2>
+          {t(lang, 'home.updates')} <span class="sub">{t(lang, 'home.updatesSub')}</span>
+        </h2>
         <div class="update-list">
           {
             updates.length === 0 && (
-              <p class="empty">Пока пусто — релизы появятся после первого синка с GitHub.</p>
+              <p class="empty">{t(lang, 'home.updatesEmpty')}</p>
             )
           }
           {
             updates.map((u) => (
-              <a class="update glass-item" href={`/projects/${u.repo.name}`} data-ripple>
+              <a class="update glass-item" href={localePath(`/projects/${u.repo.name}`, lang)} data-ripple>
                 <img class="thumb" src={repoImage(u.repo)} alt="" width="52" height="52" loading="lazy" />
                 <div class="update-meta">
                   <div class="update-title">
                     <strong>{u.repo.name}</strong>
                     <span class="tag">{u.tag}</span>
                   </div>
-                  <div class="update-desc">{u.name || u.notes || u.repo.description}</div>
+                  <div class="update-desc">{u.name || u.notes || repoDescriptions.get(u.repo.id) || u.repo.description}</div>
                 </div>
                 <div class="stats">
-                  <span>★ {formatCount(u.repo.stars)}</span>
-                  <span>↓ {formatCount(u.repo.totalDownloads)}</span>
+                  <span>★ {formatCount(u.repo.stars, lang)}</span>
+                  <span>↓ {formatCount(u.repo.totalDownloads, lang)}</span>
                 </div>
                 <span class="chevron">›</span>
               </a>
@@ -97,29 +119,29 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
         </div>
       </section>
 
-      <SpotifyWidget client:load initial={nowPlaying} />
+      <SpotifyWidget client:load initial={nowPlaying} lang={lang} />
     </div>
 
     {
       posts.length > 0 && (
         <section class="posts glass">
           <h2>
-            Последние публикации
-            <a class="all" href="/publications">
-              все ›
+            {t(lang, 'home.posts')}
+            <a class="all" href={localePath('/publications', lang)}>
+              {t(lang, 'home.allPosts')}
             </a>
           </h2>
           <div class="post-list">
             {posts.map((p) => (
-              <a class="post glass-item" href={`/publications/${p.id}`} data-ripple>
+              <a class="post glass-item" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
                 <div class="post-head">
                   <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
-                    {p.source === 'telegram' ? 'TELEGRAM' : 'ADMIN'}
+                    {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
                   </span>
-                  <span class="post-date">{formatDate(p.createdAt)}</span>
+                  <span class="post-date">{formatDate(p.createdAt, lang)}</span>
                 </div>
-                <div class="post-title">{p.title}</div>
-                <p class="post-excerpt">{excerpt(p.bodyMd, 140)}</p>
+                <div class="post-title">{postCards.get(p.id)?.title ?? p.title}</div>
+                <p class="post-excerpt">{postCards.get(p.id)?.excerpt ?? ''}</p>
               </a>
             ))}
           </div>
@@ -129,7 +151,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 
     {
       contributions && contributions.weeks.length > 0 && (
-        <Heatmap total={contributions.total} weeks={contributions.weeks} claude={claudeActivity} />
+        <Heatmap total={contributions.total} weeks={contributions.weeks} claude={claudeActivity} lang={lang} />
       )
     }
   </main>

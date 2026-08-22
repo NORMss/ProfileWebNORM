@@ -52,6 +52,48 @@ export const config = {
   get adminPass() {
     return env('ADMIN_PASS');
   },
+  /**
+   * Провайдер автоперевода: google | deepl | azure | none.
+   * Пусто — определяется автоматически по заданному ключу.
+   */
+  get translateProvider() {
+    return env('TRANSLATE_PROVIDER').trim().toLowerCase();
+  },
+  /** Google Cloud Translation API (v2, авторизация по API-ключу). Бесплатно 500 000 символов/мес. */
+  get googleTranslateKey() {
+    return env('GOOGLE_TRANSLATE_API_KEY').trim();
+  },
+  /** DeepL API Free — 500 000 символов/мес, у провайдера есть эндпоинт реального расхода. */
+  get deeplApiKey() {
+    return env('DEEPL_API_KEY').trim();
+  },
+  /** Azure AI Translator, тариф F0 — 2 000 000 символов/мес. */
+  get azureTranslatorKey() {
+    return env('AZURE_TRANSLATOR_KEY').trim();
+  },
+  get azureTranslatorRegion() {
+    return env('AZURE_TRANSLATOR_REGION', 'global').trim();
+  },
+  get azureTranslatorEndpoint() {
+    return env('AZURE_TRANSLATOR_ENDPOINT', 'https://api.cognitive.microsofttranslator.com').replace(/\/$/, '');
+  },
+  /** Свой месячный потолок символов (0 — брать бесплатный лимит провайдера). */
+  get translateMonthlyLimit() {
+    const n = Number.parseInt(env('TRANSLATE_MONTHLY_LIMIT', '0'), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  },
+  /** Ключ IndexNow — мгновенное уведомление Bing/Yandex о новых страницах. */
+  get indexNowKey() {
+    return env('INDEXNOW_KEY').trim();
+  },
+  /** content= из мета-тега подтверждения прав в Google Search Console. */
+  get googleSiteVerification() {
+    return env('GOOGLE_SITE_VERIFICATION').trim();
+  },
+  /** content= из мета-тега подтверждения прав в Яндекс.Вебмастере. */
+  get yandexVerification() {
+    return env('YANDEX_VERIFICATION').trim();
+  },
   get dbPath() {
     return env('DB_PATH', './data/site.db');
   },

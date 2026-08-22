@@ -74,3 +74,33 @@ export const posts = sqliteTable('posts', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
+
+/**
+ * Кеш машинных переводов: одна строка на (сущность, поле, язык).
+ * sourceHash — хеш исходного русского текста: изменился пост → перевод
+ * помечается устаревшим и делается заново, иначе берётся из БД без обращения к API.
+ */
+export const translations = sqliteTable('translations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** post | repo | setting */
+  entity: text('entity').notNull(),
+  entityId: text('entity_id').notNull(),
+  /** title | excerpt | body_html | description | readme_html | text */
+  field: text('field').notNull(),
+  lang: text('lang').notNull(),
+  sourceHash: text('source_hash').notNull(),
+  value: text('value').notNull().default(''),
+  /** Сколько символов ушло в API на этот перевод — для статистики в админке */
+  chars: integer('chars').notNull().default(0),
+  updatedAt: text('updated_at').notNull().default(''),
+});
+
+/** Расход лимита переводчика по месяцам (ключ '2026-08') — для панели лимитов в админке. */
+export const translationUsage = sqliteTable('translation_usage', {
+  month: text('month').primaryKey(),
+  provider: text('provider').notNull().default(''),
+  chars: integer('chars').notNull().default(0),
+  requests: integer('requests').notNull().default(0),
+  errors: integer('errors').notNull().default(0),
+  updatedAt: text('updated_at').notNull().default(''),
+});

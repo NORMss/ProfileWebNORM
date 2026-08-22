@@ -23,6 +23,14 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
 };
 
+/**
+ * Санитайзер уже готового HTML — например, ответа API перевода:
+ * внешнему сервису доверять нельзя, теги прогоняем через тот же белый список.
+ */
+export function sanitizeRendered(html: string): string {
+  return sanitizeHtml(html, SANITIZE_OPTIONS);
+}
+
 /** Рендер markdown → безопасный HTML (вызывается при синке/сохранении, не на каждый запрос). */
 export function renderMarkdown(source: string): string {
   return sanitizeHtml(md.render(source), SANITIZE_OPTIONS);
@@ -66,6 +74,14 @@ export function renderReadme(source: string, fullName: string): string {
 /** Короткий текст-превью из markdown (для карточек публикаций). */
 export function excerpt(sourceMd: string, maxLen = 200): string {
   const plain = sanitizeHtml(md.render(sourceMd), { allowedTags: [], allowedAttributes: {} })
+    .replace(/\s+/g, ' ')
+    .trim();
+  return plain.length > maxLen ? plain.slice(0, maxLen).trimEnd() + '…' : plain;
+}
+
+/** Короткий текст-превью из готового HTML (для переведённых карточек публикаций). */
+export function excerptFromHtml(html: string, maxLen = 200): string {
+  const plain = sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
     .replace(/\s+/g, ' ')
     .trim();
   return plain.length > maxLen ? plain.slice(0, maxLen).trimEnd() + '…' : plain;

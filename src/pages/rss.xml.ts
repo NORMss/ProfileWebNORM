@@ -1,6 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getPublishedPosts } from '../lib/queries';
 import { config } from '../lib/config';
+import { DEFAULT_LANG, localePath } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
+import { FIELDS, localizePostCards } from '../lib/translate/content';
+import { cachedFields } from '../lib/translate';
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -11,20 +15,26 @@ function cdata(s: string): string {
   return `<![CDATA[${s.replace(/\]\]>/g, ']]]]><![CDATA[>')}]]>`;
 }
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ locals }) => {
+  const lang = locals.lang ?? DEFAULT_LANG;
   const site = config.siteUrl.replace(/\/$/, '');
   const posts = getPublishedPosts().slice(0, 50);
   const lastBuild = posts[0]?.createdAt ? new Date(posts[0].createdAt) : new Date();
+  // Лента берёт только готовые переводы: тратить лимит API на запрос робота-читалки незачем
+  const cards = await localizePostCards(posts, lang, { allowApi: false });
 
   const items = posts
     .map((p) => {
-      const url = `${site}/publications/${p.id}`;
+      const url = `${site}${localePath(`/publications/${p.id}`, lang)}`;
+      const body =
+        cachedFields('post', p.id, [{ field: FIELDS.body, text: p.bodyHtml, html: true }], lang).values[FIELDS.body] ??
+        p.bodyHtml;
       return `    <item>
-      <title>${esc(p.title)}</title>
+      <title>${esc(cards.get(p.id)?.title ?? p.title)}</title>
       <link>${url}</link>
       <guid isPermaLink="true">${url}</guid>
       <pubDate>${new Date(p.createdAt).toUTCString()}</pubDate>
-      <description>${cdata(p.bodyHtml)}</description>
+      <description>${cdata(body)}</description>
     </item>`;
     })
     .join('\n');
@@ -32,11 +42,11 @@ export const GET: APIRoute = async () => {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>NORMno — публикации</title>
-    <link>${site}/publications</link>
-    <atom:link href="${site}/rss.xml" rel="self" type="application/rss+xml"/>
-    <description>Новости проектов на Kotlin Multiplatform и посты из Telegram-канала</description>
-    <language>ru</language>
+    <title>${esc(t(lang, 'pubs.rssTitle'))}</title>
+    <link>${site}${localePath('/publications', lang)}</link>
+    <atom:link href="${site}${localePath('/rss.xml', lang)}" rel="self" type="application/rss+xml"/>
+    <description>${esc(t(lang, 'pubs.rssDescription'))}</description>
+    <language>${lang}</language>
     <lastBuildDate>${lastBuild.toUTCString()}</lastBuildDate>
 ${items}
   </channel>

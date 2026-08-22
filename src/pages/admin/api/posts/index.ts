@@ -1,7 +1,11 @@
 import type { APIRoute } from 'astro';
+import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
 import { sendPostToTelegram } from '../../../../lib/telegram';
+import { autoTranslateOnPublish } from '../../../../lib/translate';
+import { translatePostAfterPublish } from '../../../../lib/translate/content';
+import { pingIndexNowInBackground } from '../../../../lib/indexnow';
 
 export const POST: APIRoute = async ({ request }) => {
   const body = (await request.json()) as {
@@ -28,6 +32,14 @@ export const POST: APIRoute = async ({ request }) => {
     })
     .returning({ id: schema.posts.id })
     .get();
+
+  // Новый пост переводим сразу — так английская версия готова к моменту,
+  // когда на неё придёт первый посетитель или робот (лимит тратится один раз).
+  if (status === 'published') {
+    const post = db.select().from(schema.posts).where(eq(schema.posts.id, inserted.id)).get();
+    if (post && autoTranslateOnPublish()) translatePostAfterPublish(post);
+    pingIndexNowInBackground([`/publications/${inserted.id}`, '/publications', '/']);
+  }
 
   // Пост на сайте уже создан — ошибка Telegram не отменяет публикацию, а возвращается предупреждением
   let telegramError: string | null = null;

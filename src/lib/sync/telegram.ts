@@ -7,6 +7,9 @@ import { config } from '../config';
 import { renderMarkdown } from '../markdown';
 import { getSetting, setSetting } from '../settings';
 import { uploadsDir } from '../uploads';
+import { autoTranslateOnPublish } from '../translate';
+import { translatePostsInBackground } from '../translate/content';
+import { pingIndexNowInBackground } from '../indexnow';
 
 interface TgChat {
   id: number;
@@ -145,6 +148,8 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
   let imported = 0;
   let updated = 0;
   let maxUpdateId = offset;
+  // id постов, которым после импорта нужен английский перевод
+  const touched = new Set<number>();
   // Альбом приходит серией сообщений с одним media_group_id (подпись только
   // у первого) — запоминаем, в какой пост добавлять остальные фото серии.
   const mediaGroupPost = new Map<string, number>();
@@ -194,6 +199,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         .returning({ id: schema.posts.id })
         .get();
       if (msg.media_group_id) mediaGroupPost.set(msg.media_group_id, inserted.id);
+      touched.add(inserted.id);
       imported++;
       continue;
     }
@@ -247,6 +253,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         .returning({ id: schema.posts.id })
         .get();
       if (fwd.media_group_id) mediaGroupPost.set(fwd.media_group_id, inserted.id);
+      touched.add(inserted.id);
       imported++;
       continue;
     }
@@ -274,6 +281,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         })
         .where(eq(schema.posts.id, post.id))
         .run();
+      touched.add(post.id);
       updated++;
     }
   }
@@ -281,6 +289,15 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
   if (maxUpdateId > offset) setSetting('tg_offset', String(maxUpdateId));
   if (imported > 0 || updated > 0) {
     setSetting('tg_last_import', JSON.stringify({ at: new Date().toISOString(), count: imported }));
+  }
+
+  // Свежие посты переводим сразу после импорта — одной пачкой, в фоне.
+  if (touched.size > 0) {
+    const fresh = [...touched]
+      .map((id) => db.select().from(schema.posts).where(eq(schema.posts.id, id)).get())
+      .filter((p): p is NonNullable<typeof p> => !!p && p.status === 'published');
+    if (autoTranslateOnPublish()) translatePostsInBackground(fresh);
+    pingIndexNowInBackground([...fresh.map((p) => `/publications/${p.id}`), '/publications', '/']);
   }
   return { imported, updated };
 }

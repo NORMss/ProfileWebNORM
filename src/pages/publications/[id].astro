@@ -4,36 +4,72 @@ import Icon from '../../components/Icon.astro';
 import { getPost } from '../../lib/queries';
 import { formatDate } from '../../lib/format';
 import { tgChannelName, tgPostUrl } from '../../lib/telegram';
+import { localePath } from '../../lib/i18n';
+import { t } from '../../lib/i18n/dict';
+import { localizePost } from '../../lib/translate/content';
+import { blogPostingJsonLd, breadcrumbJsonLd } from '../../lib/seo';
 
+const lang = Astro.locals.lang;
 const id = Number.parseInt(Astro.params.id ?? '', 10);
 const post = Number.isFinite(id) ? getPost(id) : undefined;
 if (!post || post.status !== 'published') {
   return new Response(null, { status: 404, statusText: 'Not found' });
 }
 
+// Ленивый перевод: старый пост переводится, когда на него впервые зашли,
+// и дальше отдаётся из кеша БД. Не успели за отведённое время — покажем оригинал.
+const content = await localizePost(post, lang);
+
 const channelName = post.tgMessageId ? tgChannelName() : null;
 const channelPostUrl = post.tgMessageId ? tgPostUrl(post.tgMessageId) : null;
+const path = `/publications/${post.id}`;
+
+const jsonLd = [
+  blogPostingJsonLd(
+    { title: content.title, excerpt: content.excerpt, createdAt: post.createdAt, updatedAt: post.updatedAt, path },
+    lang,
+  ),
+  breadcrumbJsonLd(
+    [
+      { name: t(lang, 'nav.home'), path: '/' },
+      { name: t(lang, 'pubs.heading'), path: '/publications' },
+      { name: content.title, path },
+    ],
+    lang,
+  ),
+];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
 
-<Base title={`${post.title} — публикации NORMno`} active="pubs">
+<Base
+  title={`${content.title} — ${t(lang, 'pubs.rssTitle')}`}
+  description={content.excerpt}
+  active="pubs"
+  ogType="article"
+  jsonLd={jsonLd}
+  publishedTime={post.createdAt}
+  modifiedTime={post.updatedAt}
+  machineTranslated={lang !== 'ru' && content.translated}
+>
   <main>
-    <a class="back glass" href="/publications" data-ripple><span class="back-arrow">‹</span> Все публикации</a>
+    <a class="back glass" href={localePath('/publications', lang)} data-ripple>
+      <span class="back-arrow">‹</span> {t(lang, 'pubs.back')}
+    </a>
     <article class="glass">
       <div class="head">
         <span class:list={['badge', post.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
-          {post.source === 'telegram' ? 'TELEGRAM' : 'ADMIN'}
+          {post.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
         </span>
-        <span class="date">{formatDate(post.createdAt)}</span>
+        <span class="date">{formatDate(post.createdAt, lang)}</span>
       </div>
-      <h1>{post.title}</h1>
-      <div class="md-body" set:html={post.bodyHtml} />
+      <h1>{content.title}</h1>
+      <div class="md-body" set:html={content.bodyHtml} />
       {
         channelName && channelPostUrl && (
           <a class="tg-sync" href={channelPostUrl} target="_blank" rel="noopener noreferrer">
             <Icon name="telegram" size={16} />
-            Публикация синхронизирована с каналом @{channelName}
+            {t(lang, 'pubs.tgSyncedLink', { channel: channelName })}
           </a>
         )
       }

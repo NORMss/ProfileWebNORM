@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { inArray } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
+import { dropTranslations } from '../../../../lib/translate';
 
 /** Массовое удаление публикаций по списку id. */
 export const POST: APIRoute = async ({ request }) => {
@@ -10,5 +11,6 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: false, error: 'Список id пуст' }, { status: 400 });
   }
   const deleted = db.delete(schema.posts).where(inArray(schema.posts.id, ids)).run();
+  for (const id of ids) dropTranslations('post', id);
   return Response.json({ ok: true, deleted: deleted.changes });
 };
