@@ -31,9 +31,26 @@ export interface LocalizedPost {
   translated: boolean;
 }
 
+/** Перевод текущей редакции текста; null — его нет или он устарел. */
 function freshValue(entity: 'post' | 'repo' | 'setting', id: string | number, field: string, lang: Lang, source: string) {
   const hit = getCached(entity, id, field, lang, sourceHash(source));
   return hit?.fresh ? hit.value : null;
+}
+
+/**
+ * Перевод для показа: свежий, а если пост правили и перевод ещё не догнал —
+ * перевод предыдущей редакции. Русский текст возвращается только когда
+ * перевода нет вовсе. Обновление устаревшего перевода это не отменяет.
+ */
+function displayValue(
+  entity: 'post' | 'repo' | 'setting',
+  id: string | number,
+  field: string,
+  lang: Lang,
+  source: string,
+): string | null {
+  const hit = getCached(entity, id, field, lang, sourceHash(source));
+  return hit && hit.value.trim() ? hit.value : null;
 }
 
 /**
@@ -76,11 +93,11 @@ export async function localizePostCards(
 
   return new Map(
     posts.map((post) => {
-      const body = freshValue('post', post.id, FIELDS.body, lang, post.bodyHtml);
-      const title = freshValue('post', post.id, FIELDS.title, lang, post.title) ?? post.title;
-      const preview = body
-        ? excerptFromHtml(body)
-        : freshValue('post', post.id, FIELDS.excerpt, lang, excerpt(post.bodyMd)) ?? excerpt(post.bodyMd);
+      const body = displayValue('post', post.id, FIELDS.body, lang, post.bodyHtml);
+      const title = displayValue('post', post.id, FIELDS.title, lang, post.title) ?? post.title;
+      const preview =
+        displayValue('post', post.id, FIELDS.excerpt, lang, excerpt(post.bodyMd)) ??
+        (body ? excerptFromHtml(body) : excerpt(post.bodyMd));
       return [post.id, { title, excerpt: preview }];
     }),
   );
@@ -125,7 +142,7 @@ export async function localizeRepoDescriptions(
   return new Map(
     repos.map((repo) => [
       repo.id,
-      freshValue('repo', repo.id, FIELDS.description, lang, repo.description) ?? repo.description,
+      displayValue('repo', repo.id, FIELDS.description, lang, repo.description) ?? repo.description,
     ]),
   );
 }
@@ -181,7 +198,7 @@ async function localizeFieldsFor(
 /** Статус перевода поста для админки: none | stale | ready. */
 export function postTranslationState(post: Post, lang: Lang = 'en'): 'none' | 'stale' | 'ready' {
   const state = cachedFields('post', post.id, postFields(post), lang);
-  if (state.translated) return 'ready';
+  if (state.fresh) return 'ready';
   const anyCached = getCached('post', post.id, FIELDS.title, lang, sourceHash(post.title));
   return anyCached ? 'stale' : 'none';
 }

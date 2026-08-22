@@ -16,6 +16,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const id = parseId(params.id);
   if (id === null) return Response.json({ ok: false, error: 'Неверный id' }, { status: 400 });
   const body = (await request.json()) as { title?: string; bodyMd?: string; status?: string };
+  const before = db.select({ status: schema.posts.status }).from(schema.posts).where(eq(schema.posts.id, id)).get();
   const set: Partial<typeof schema.posts.$inferInsert> = { updatedAt: new Date().toISOString() };
   if (typeof body.title === 'string' && body.title.trim()) set.title = body.title.trim();
   if (typeof body.bodyMd === 'string') {
@@ -31,10 +32,14 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const contentChanged = set.title !== undefined || set.bodyMd !== undefined;
   const post = db.select().from(schema.posts).where(eq(schema.posts.id, id)).get();
 
-  // Текст изменился → старый перевод устарел, переводим заново в фоне
-  if (post && post.status === 'published' && contentChanged && autoTranslateOnPublish()) {
-    translatePostAfterPublish(post);
-    pingIndexNowInBackground([`/publications/${id}`]);
+  // Правка текста делает перевод устаревшим, а черновик мог только что стать
+  // публикацией — в обоих случаях догоняем перевод. Если он уже свежий,
+  // вызов ничего не сделает и лимит не потратит.
+  const published = post?.status === 'published';
+  const becamePublished = published && before?.status !== 'published';
+  if (post && published && autoTranslateOnPublish()) translatePostAfterPublish(post);
+  if (published && (contentChanged || becamePublished)) {
+    pingIndexNowInBackground([`/publications/${id}`, '/publications', '/']);
   }
   if (contentChanged && post?.tgMessageId) {
     try {
