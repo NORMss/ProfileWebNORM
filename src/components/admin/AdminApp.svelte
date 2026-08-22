@@ -732,7 +732,7 @@
       {/if}
     </div>
   </section>
-{:else}
+{:else if tab === 'posts'}
   <section class="posts-grid">
     <div class="panel">
       <h2>{editingId !== null ? `Редактирование #${editingId}` : 'Новая публикация · Markdown'}</h2>
@@ -1702,6 +1702,7 @@
   .tr-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
     gap: 14px;
     margin-bottom: 16px;
   }
