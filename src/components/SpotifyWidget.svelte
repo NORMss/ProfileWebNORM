@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { DEFAULT_LANG, type Lang } from '../lib/i18n';
+  import { t } from '../lib/i18n/dict';
 
   interface Track {
     title: string;
@@ -15,7 +17,7 @@
     track: Track | null;
   }
 
-  let { initial } = $props<{ initial: NowPlaying }>();
+  let { initial, lang = DEFAULT_LANG } = $props<{ initial: NowPlaying; lang?: Lang }>();
 
   let data = $state<NowPlaying>(initial);
 
@@ -49,7 +51,7 @@
           />
         </svg>
       </span>
-      <span class="label">{data.playing ? 'СЕЙЧАС ИГРАЕТ' : 'НЕДАВНО ИГРАЛО'}</span>
+      <span class="label">{data.playing ? t(lang, 'spotify.now') : t(lang, 'spotify.recent')}</span>
       {#if data.playing}
         <span class="eq" aria-hidden="true">
           {#each [0, 1, 2, 3] as i}
@@ -60,7 +62,7 @@
     </div>
     <a class="track" href={data.track.url} target="_blank" rel="noopener noreferrer" data-ripple>
       {#if data.track.coverUrl}
-        <img class="cover" src={data.track.coverUrl} alt="Обложка альбома" width="72" height="72" loading="lazy" />
+        <img class="cover" src={data.track.coverUrl} alt={t(lang, 'spotify.coverAlt')} width="72" height="72" loading="lazy" />
       {:else}
         <div class="cover cover-empty">cover</div>
       {/if}

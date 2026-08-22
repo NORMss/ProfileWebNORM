@@ -3,37 +3,72 @@ import Base from '../../layouts/Base.astro';
 import Icon from '../../components/Icon.astro';
 import { getPublishedPosts } from '../../lib/queries';
 import { formatDate } from '../../lib/format';
-import { excerpt } from '../../lib/markdown';
+import { localePath } from '../../lib/i18n';
+import { t } from '../../lib/i18n/dict';
+import { localizePostCards } from '../../lib/translate/content';
+import { breadcrumbJsonLd } from '../../lib/seo';
 
+const lang = Astro.locals.lang;
 const posts = getPublishedPosts();
+// Для списка переводим только заголовок и превью: тело поста — при заходе на страницу
+const cards = await localizePostCards(posts, lang);
+
+const jsonLd = [
+  breadcrumbJsonLd(
+    [
+      { name: t(lang, 'nav.home'), path: '/' },
+      { name: t(lang, 'pubs.heading'), path: '/publications' },
+    ],
+    lang,
+  ),
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: t(lang, 'pubs.rssTitle'),
+    description: t(lang, 'pubs.description'),
+    inLanguage: lang,
+    blogPost: posts.slice(0, 20).map((p) => ({
+      '@type': 'BlogPosting',
+      headline: cards.get(p.id)?.title ?? p.title,
+      datePublished: p.createdAt,
+      url: `${localePath(`/publications/${p.id}`, lang)}`,
+    })),
+  },
+];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
 
-<Base title="Публикации — NORMno" active="pubs">
+<Base
+  title={t(lang, 'pubs.title')}
+  description={t(lang, 'pubs.description')}
+  active="pubs"
+  jsonLd={jsonLd}
+  machineTranslated={lang !== 'ru' && posts.length > 0}
+>
   <main>
-    <h1>Публикации</h1>
-    <p class="lead">Новости из admin-панели и посты из Telegram-канала</p>
+    <h1>{t(lang, 'pubs.heading')}</h1>
+    <p class="lead">{t(lang, 'pubs.lead')}</p>
     <div class="list">
-      {posts.length === 0 && <p class="empty">Публикаций пока нет.</p>}
+      {posts.length === 0 && <p class="empty">{t(lang, 'pubs.empty')}</p>}
       {
         posts.map((p) => (
-          <a class="post glass" href={`/publications/${p.id}`} data-ripple>
+          <a class="post glass" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
             <div class="post-head">
               <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
-                {p.source === 'telegram' ? 'TELEGRAM' : 'ADMIN'}
+                {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
               </span>
               {
                 p.tgMessageId && (
-                  <span class="tg-plane" title="Синхронизировано с Telegram-каналом">
+                  <span class="tg-plane" title={t(lang, 'pubs.tgSynced')}>
                     <Icon name="telegram" size={15} />
                   </span>
                 )
               }
-              <span class="date">{formatDate(p.createdAt)}</span>
+              <span class="date">{formatDate(p.createdAt, lang)}</span>
             </div>
-            <h2>{p.title}</h2>
-            <p class="excerpt">{excerpt(p.bodyMd)}</p>
+            <h2>{cards.get(p.id)?.title ?? p.title}</h2>
+            <p class="excerpt">{cards.get(p.id)?.excerpt ?? ''}</p>
           </a>
         ))
       }

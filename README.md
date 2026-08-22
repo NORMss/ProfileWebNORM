@@ -37,6 +37,24 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 - **Бэкапы в Telegram** — ежедневно в 04:30 бот присылает архив БД и загруженных
   файлов в личный чат (`TELEGRAM_BACKUP_CHAT_ID`), плюс кнопка ручного бэкапа
   в админке.
+- **Две языковые версии** — русская на «чистых» адресах, английская под `/en`
+  (`/en/publications/12`). Язык подбирается по `Accept-Language`: браузер не на
+  русском — открывается английская версия; выбор гостя запоминается в куки, а
+  круглая кнопка в углу переключает язык на той же странице. Роботов по языку
+  не редиректим — каждый получает ровно тот URL, что запросил.
+- **Автоперевод через API** — интерфейс переведён вручную (лимит не тратится),
+  контент — Google Cloud Translation (или DeepL / Azure на выбор) с кешем в
+  SQLite. Новые посты переводятся сразу после публикации, старые страницы —
+  лениво при первом заходе. README, который и так на английском, определяется
+  по доле кириллицы и не переводится вовсе. Локально ничего не крутится:
+  для 2 ГБ ОЗУ это единственный рабочий вариант. Подробно:
+  [docs/TRANSLATE.md](docs/TRANSLATE.md).
+- **SEO** — canonical и `hreflang` на каждой странице, `sitemap.xml` с обеими
+  языковыми версиями, динамический `robots.txt` (на админ-хосте — полный
+  запрет), Open Graph и Twitter Card, JSON-LD (`Person`, `WebSite`,
+  `BlogPosting`, `SoftwareSourceCode`, хлебные крошки), RSS на двух языках и
+  IndexNow-пинг Bing/Яндекса при публикации. Чек-лист переезда на новый домен:
+  [docs/SEO.md](docs/SEO.md).
 - **Синк данных** — cron внутри приложения (по умолчанию раз в 30 минут) тянет GitHub
   (repos, releases + download_count, stargazers, issues, README, календарь контрибуций,
   коммиты с участием Claude) и посты Telegram-канала и пишет в SQLite. README и посты
@@ -45,8 +63,11 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 - **Админка** — вкладки «Проекты GitHub» (видимость, Hard/Vibe, обложки, сортировка
   по умолчанию, ручной синк), «Обо мне и ссылки» (markdown с превью, фото, подключение
   Spotify), «Публикации» (редактор с превью и фото, отправка в Telegram, импорт,
-  массовое удаление чекбоксами, диагностика бота, ручной бэкап). Загруженные файлы —
-  в `data/uploads`, том же volume, что и БД.
+  массовое удаление чекбоксами, диагностика бота, ручной бэкап) и «Переводы»
+  (активный провайдер, расход месячного лимита символов с прогресс-баром,
+  сравнение бесплатных лимитов сервисов, разбор ошибок API, статус перевода
+  каждого поста и ручной перевод). Загруженные файлы — в `data/uploads`,
+  том же volume, что и БД.
 
 ## Безопасность админки: отдельный поддомен
 
@@ -116,6 +137,12 @@ npm run dev
 | `TELEGRAM_BOT_TOKEN` | Бот для импорта и публикации постов канала (бот — админ канала, см. docs/TELEGRAM.md) |
 | `TELEGRAM_CHANNEL` | `@username` канала (или `-100…`); нужен для публикации постов сайта в канал |
 | `TELEGRAM_BACKUP_CHAT_ID` | Личный chat_id для ежедневных бэкапов (пусто — выключено) |
+| `TRANSLATE_PROVIDER` | Провайдер автоперевода: `google` / `deepl` / `azure` / `none` (пусто — первый с ключом) |
+| `GOOGLE_TRANSLATE_API_KEY` | Ключ Google Cloud Translation API (бесплатно 500 000 символов/мес) |
+| `DEEPL_API_KEY` / `AZURE_TRANSLATOR_KEY` | Альтернативные переводчики, см. [docs/TRANSLATE.md](docs/TRANSLATE.md) |
+| `TRANSLATE_MONTHLY_LIMIT` | Свой потолок символов в месяц (0 — бесплатный лимит провайдера) |
+| `INDEXNOW_KEY` | Ключ IndexNow: сайт сам сообщает Bing и Яндексу о новых постах |
+| `GOOGLE_SITE_VERIFICATION` / `YANDEX_VERIFICATION` | `content=` мета-тегов подтверждения прав в Search Console и Вебмастере |
 | `DB_PATH` | Путь к файлу SQLite |
 | `SYNC_INTERVAL_MIN` | Период синка, минут (по умолчанию 30) |
 | `TZ` | Часовой пояс контейнера — от него зависит время ежедневного бэкапа (04:30) |
@@ -165,7 +192,8 @@ curl -X POST https://accounts.spotify.com/api/token \
 
 ```
 src/
-  middleware.ts        # host-gating админки + Basic Auth + CSRF + запуск cron
+  middleware.ts        # host-gating админки + Basic Auth + CSRF + языковой
+                       # роутинг (/en, Accept-Language, куки) + запуск cron
   lib/
     config.ts          # доступ к env
     db/                # better-sqlite3 + Drizzle, DDL, миграции, дефолты
@@ -175,15 +203,24 @@ src/
     backup.ts          # снапшот БД + uploads → архив в Telegram
     spotify.ts         # now-playing с кешем 30 с
     markdown.ts        # markdown-it + sanitize-html
+    i18n/              # языки, разбор Accept-Language, словарь строк интерфейса
+    translate/         # провайдеры API, кеш переводов в SQLite, учёт лимита
+    seo.ts             # canonical, hreflang, Open Graph, JSON-LD
+    indexnow.ts        # пинг Bing/Яндекса при публикации
   pages/
     index/projects/publications   # публичные страницы
-    rss.xml.ts                    # RSS-лента
+    rss.xml.ts                    # RSS-лента (на языке версии сайта)
+    sitemap.xml.ts                # карта сайта с hreflang-альтернативами
+    robots.txt.ts                 # robots: публичный хост и админ-хост по-разному
+    [key].txt.ts                  # файл-подтверждение ключа IndexNow
     api/now-playing.ts            # JSON для виджета
     media/**                      # отдача загруженных изображений
     admin/**                      # админка, её API и OAuth Spotify
   components/          # Icon, Heatmap, SpotifyWidget, admin/AdminApp
 docs/DEPLOY.md         # руководство по развертыванию
 docs/TELEGRAM.md       # бот: посты, синхронизация, бэкапы
+docs/TRANSLATE.md      # автоперевод: выбор API, лимиты, кеш, ошибки
+docs/SEO.md            # индексация, hreflang, переезд на новый домен
 deploy/Caddyfile       # домены: сайт, админка, алиасы с 301
 deploy/local/          # свои блоки Caddy для этого сервера (не в git)
 ```

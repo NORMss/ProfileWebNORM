@@ -72,6 +72,26 @@ CREATE TABLE IF NOT EXISTS posts (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_posts_date ON posts(created_at DESC);
+CREATE TABLE IF NOT EXISTS translations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  field TEXT NOT NULL,
+  lang TEXT NOT NULL,
+  source_hash TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '',
+  chars INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_translations_key ON translations(entity, entity_id, field, lang);
+CREATE TABLE IF NOT EXISTS translation_usage (
+  month TEXT PRIMARY KEY,
+  provider TEXT NOT NULL DEFAULT '',
+  chars INTEGER NOT NULL DEFAULT 0,
+  requests INTEGER NOT NULL DEFAULT 0,
+  errors INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT ''
+);
 `;
 
 const DEFAULT_SETTINGS: Record<string, string> = {

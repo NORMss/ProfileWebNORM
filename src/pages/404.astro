@@ -1,13 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
+import { localePath } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
+
+const lang = Astro.locals.lang;
 ---
 
-<Base title="404 — страница не найдена">
+<Base title={t(lang, 'notFound.title')} noindex>
   <main>
     <section class="glass">
-      <h1>404</h1>
-      <p>Такой страницы нет. Возможно, она уехала в другой релиз.</p>
-      <a class="btn-accent" href="/" data-ripple>На главную</a>
+      <h1>{t(lang, 'notFound.heading')}</h1>
+      <p>{t(lang, 'notFound.text')}</p>
+      <a class="btn-accent" href={localePath('/', lang)} data-ripple>{t(lang, 'notFound.home')}</a>
     </section>
   </main>
 </Base>

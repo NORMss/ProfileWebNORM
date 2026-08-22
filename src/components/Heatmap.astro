@@ -1,5 +1,7 @@
 ---
-import { formatDate } from '../lib/format';
+import { formatDate, formatNumber } from '../lib/format';
+import { DEFAULT_LANG, type Lang } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
 
 /**
  * Тепловая карта активности: weeks — календарь контрибуций GitHub,
@@ -9,9 +11,10 @@ interface Props {
   total: number;
   weeks: (readonly [string, number])[][];
   claude?: { total: number; byDate: Record<string, number> } | null;
+  lang?: Lang;
 }
 
-const { total, weeks, claude = null } = Astro.props;
+const { total, weeks, claude = null, lang = DEFAULT_LANG } = Astro.props;
 
 function level(count: number): number {
   if (count <= 0) return 0;
@@ -29,22 +32,21 @@ function claudeLevel(count: number): number {
   return 4;
 }
 
-const fmt = new Intl.NumberFormat('ru-RU');
-const totalLabel = fmt.format(total);
-const claudeTotalLabel = claude ? fmt.format(claude.total) : '';
+const totalLabel = formatNumber(total, lang);
+const claudeTotalLabel = claude ? formatNumber(claude.total, lang) : '';
 const showToggle = claude !== null;
 ---
 
 <section class="heatmap glass" data-view="github" id="activity-heatmap">
   <div class="head">
     <h2>
-      Активность на GitHub
-      <span class="sub sub-github">{totalLabel} контрибуций за год</span>
-      <span class="sub sub-claude">{claudeTotalLabel} коммитов с Claude за год</span>
+      {t(lang, 'heatmap.title')}
+      <span class="sub sub-github">{t(lang, 'heatmap.contributions', { count: totalLabel })}</span>
+      <span class="sub sub-claude">{t(lang, 'heatmap.claudeCommits', { count: claudeTotalLabel })}</span>
     </h2>
     {
       showToggle && (
-        <div class="views" role="tablist" aria-label="Источник активности">
+        <div class="views" role="tablist" aria-label={t(lang, 'heatmap.source')}>
           <button class="view active" data-view-btn="github" data-ripple>
             GitHub
           </button>
@@ -56,14 +58,15 @@ const showToggle = claude !== null;
     }
   </div>
   <div class="scroll">
-    <div class="grid" role="img" aria-label={`Тепловая карта: ${totalLabel} контрибуций за последний год`}>
+    <div class="grid" role="img" aria-label={t(lang, 'heatmap.aria', { count: totalLabel })}>
       {
         weeks.map((week) => (
           <div class="week">
             {week.map(([date, count]) => {
               const claudeCount = claude?.byDate[date] ?? 0;
               const tip =
-                `${formatDate(date)} · ${count}` + (claudeCount > 0 ? ` · с Claude: ${claudeCount}` : '');
+                `${formatDate(date, lang)} · ${count}` +
+                (claudeCount > 0 ? ` · ${t(lang, 'heatmap.withClaude')}: ${claudeCount}` : '');
               return <span class={`cell l${level(count)} c${claudeLevel(claudeCount)}`} title={tip} />;
             })}
           </div>

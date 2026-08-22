@@ -45,7 +45,7 @@
     tgLastImport: { at: string; count: number } | null;
   }>();
 
-  let tab = $state<'projects' | 'about' | 'posts'>('projects');
+  let tab = $state<'projects' | 'about' | 'posts' | 'translate'>('projects');
   let repos = $state<RepoRow[]>(initialRepos);
   let posts = $state<PostRow[]>(initialPosts);
   let about = $state<About>({ ...initialAbout });
@@ -441,6 +441,103 @@
     }
   }
 
+  // ——— Автоперевод на английский ———
+  interface TranslatePostRow {
+    id: number;
+    title: string;
+    createdAt: string;
+    state: 'none' | 'stale' | 'ready';
+    chars: number;
+  }
+  interface TranslateStatus {
+    month: string;
+    provider: { id: string; label: string; configured: boolean; consoleUrl: string; freeMonthlyChars: number };
+    providers: { id: string; label: string; configured: boolean; freeMonthlyChars: number; consoleUrl: string }[];
+    forced: string | null;
+    usage: { used: number; limit: number; requests: number; errors: number };
+    remote: { used: number; limit: number } | null;
+    remoteError: string | null;
+    history: { month: string; chars: number; requests: number; errors: number }[];
+    cached: number;
+    lastError: { at: string; kind: string; message: string } | null;
+    blocked: { kind: string; until: string; message: string } | null;
+    flags: { auto: boolean; lazy: boolean };
+    posts: TranslatePostRow[];
+    pending: { count: number; chars: number };
+    indexNow: boolean;
+  }
+
+  let translateStatus = $state<TranslateStatus | null>(null);
+  let translateLoading = $state(false);
+  let translateBusy = $state('');
+
+  const numberFmt = new Intl.NumberFormat('ru-RU');
+  function num(n: number) {
+    return numberFmt.format(n);
+  }
+
+  const usedPercent = $derived(
+    translateStatus && translateStatus.usage.limit > 0
+      ? Math.min(100, Math.round((translateStatus.usage.used / translateStatus.usage.limit) * 100))
+      : 0,
+  );
+
+  const ERROR_HINTS: Record<string, string> = {
+    quota: 'Месячный лимит символов исчерпан — перевод возобновится в следующем месяце или после повышения квоты.',
+    auth: 'API-ключ не принят: проверьте значение в .env и что Cloud Translation API включён в проекте.',
+    rate: 'Слишком много запросов подряд — провайдер попросил притормозить.',
+    network: 'Сервер не смог достучаться до API перевода (сеть или таймаут).',
+    too_large: 'Текст слишком большой для одного запроса — он пропущен.',
+    disabled: 'Провайдер перевода не настроен.',
+    api: 'API вернул ошибку — подробности в сообщении.',
+  };
+
+  async function loadTranslateStatus() {
+    translateLoading = true;
+    try {
+      translateStatus = (await api('/admin/api/translate/status', 'GET')) as unknown as TranslateStatus;
+    } catch (e) {
+      say(`Не удалось получить статус перевода: ${e}`);
+    } finally {
+      translateLoading = false;
+    }
+  }
+
+  function openTranslate() {
+    tab = 'translate';
+    if (!translateStatus) void loadTranslateStatus();
+  }
+
+  async function runTranslate(scope: string, id?: number) {
+    translateBusy = id ? `post-${id}` : scope;
+    try {
+      const r = await api('/admin/api/translate/run', 'POST', { scope, id });
+      if (scope === 'test') {
+        say(`Ключ работает. Пример перевода: «${r.sample}»`);
+      } else if (scope === 'pending') {
+        const note = r.note ? ` ${r.note}` : '';
+        say(`Переведено постов: ${r.translated}, символов: ${num(Number(r.spent ?? 0))}, осталось: ${r.left}.${note}`);
+      } else {
+        say(`Готово, символов потрачено: ${num(Number(r.spent ?? 0))}`);
+      }
+      await loadTranslateStatus();
+    } catch (e) {
+      say(`Ошибка перевода: ${e}`);
+      await loadTranslateStatus();
+    } finally {
+      translateBusy = '';
+    }
+  }
+
+  async function saveTranslateFlags(patch: { auto?: boolean; lazy?: boolean; clearError?: boolean }) {
+    try {
+      await api('/admin/api/translate/settings', 'POST', patch);
+      await loadTranslateStatus();
+    } catch (e) {
+      say(`Ошибка: ${e}`);
+    }
+  }
+
   const dateFmt = new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric',
     month: 'short',
@@ -459,6 +556,7 @@
   <button class="tab" class:active={tab === 'projects'} onclick={() => (tab = 'projects')}>Проекты GitHub</button>
   <button class="tab" class:active={tab === 'about'} onclick={() => (tab = 'about')}>Обо мне и ссылки</button>
   <button class="tab" class:active={tab === 'posts'} onclick={() => (tab = 'posts')}>Публикации</button>
+  <button class="tab" class:active={tab === 'translate'} onclick={openTranslate}>Переводы</button>
 </div>
 
 {#if toast}
@@ -789,6 +887,174 @@
         </div>
       </div>
     </div>
+  </section>
+{:else if tab === 'translate'}
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Автоперевод на английский</h2>
+      <div class="head-right">
+        <span class="hint">Кеш переводов: {translateStatus ? num(translateStatus.cached) : '—'}</span>
+        <button class="btn" onclick={loadTranslateStatus} disabled={translateLoading}>
+          {translateLoading ? 'Обновление…' : '⟳ Обновить'}
+        </button>
+      </div>
+    </div>
+
+    {#if !translateStatus}
+      <p class="hint">{translateLoading ? 'Загрузка статуса…' : 'Статус недоступен'}</p>
+    {:else}
+      <div class="tr-grid">
+        <div class="tr-card">
+          <div class="tr-card-head">
+            <span class="tr-title">{translateStatus.provider.label}</span>
+            <span class="chip {translateStatus.provider.configured ? 'chip-ok' : 'chip-off'}">
+              {translateStatus.provider.configured ? 'ключ задан' : 'ключ не задан'}
+            </span>
+          </div>
+
+          <div class="tr-bar" role="img" aria-label={`Израсходовано ${usedPercent}% лимита`}>
+            <div
+              class="tr-bar-fill"
+              class:warn={usedPercent >= 80}
+              class:danger={usedPercent >= 95}
+              style={`width:${usedPercent}%`}
+            ></div>
+          </div>
+          <div class="tr-usage">
+            <strong>{num(translateStatus.usage.used)}</strong> из {num(translateStatus.usage.limit)} символов
+            за {translateStatus.month} · {usedPercent}%
+          </div>
+          <div class="hint small">
+            Запросов к API: {num(translateStatus.usage.requests)} · ошибок: {num(translateStatus.usage.errors)}
+            {#if translateStatus.remote}
+              · по данным провайдера: {num(translateStatus.remote.used)} из {num(translateStatus.remote.limit)}
+            {/if}
+            {#if translateStatus.remoteError}
+              · расход у провайдера получить не удалось
+            {/if}
+          </div>
+          {#if translateStatus.provider.consoleUrl}
+            <a class="tr-link" href={translateStatus.provider.consoleUrl} target="_blank" rel="noopener noreferrer">
+              Квоты и биллинг у провайдера ↗
+            </a>
+          {/if}
+        </div>
+
+        <div class="tr-card">
+          <div class="tr-card-head"><span class="tr-title">Бесплатные лимиты</span></div>
+          <div class="tr-providers">
+            {#each translateStatus.providers as p (p.id)}
+              <div class="tr-provider" class:current={p.id === translateStatus.provider.id}>
+                <span class="tr-provider-name">{p.label}</span>
+                <span class="hint small">{num(p.freeMonthlyChars)} симв./мес</span>
+                <span class="chip {p.configured ? 'chip-ok' : 'chip-off'}">
+                  {p.configured ? 'настроен' : 'нет ключа'}
+                </span>
+              </div>
+            {/each}
+          </div>
+          <p class="hint small">
+            Активный провайдер выбирается переменной TRANSLATE_PROVIDER
+            {#if translateStatus.forced}
+              (сейчас задан явно: {translateStatus.forced})
+            {:else}
+              (сейчас — первый с ключом)
+            {/if}. Счётчик выше ведётся на сервере, поэтому перевод останавливается
+            до исчерпания лимита, а не после списания денег.
+          </p>
+        </div>
+      </div>
+
+      {#if translateStatus.blocked}
+        <div class="tr-alert danger">
+          <strong>Перевод приостановлен:</strong> {ERROR_HINTS[translateStatus.blocked.kind] ?? translateStatus.blocked.kind}
+          <div class="hint small">
+            Возобновится после {fmt(translateStatus.blocked.until)} · {translateStatus.blocked.message}
+          </div>
+          <button class="btn btn-sm" onclick={() => saveTranslateFlags({ clearError: true })}>
+            Сбросить и попробовать снова
+          </button>
+        </div>
+      {:else if translateStatus.lastError}
+        <div class="tr-alert">
+          <strong>Последняя ошибка API:</strong> {ERROR_HINTS[translateStatus.lastError.kind] ?? translateStatus.lastError.kind}
+          <div class="hint small">{fmt(translateStatus.lastError.at)} · {translateStatus.lastError.message}</div>
+          <button class="btn btn-sm" onclick={() => saveTranslateFlags({ clearError: true })}>Скрыть</button>
+        </div>
+      {/if}
+
+      <div class="tr-flags">
+        <label class="tr-check">
+          <input
+            type="checkbox"
+            checked={translateStatus.flags.auto}
+            onchange={(e) => saveTranslateFlags({ auto: e.currentTarget.checked })}
+          />
+          Переводить сразу после публикации поста
+        </label>
+        <label class="tr-check">
+          <input
+            type="checkbox"
+            checked={translateStatus.flags.lazy}
+            onchange={(e) => saveTranslateFlags({ lazy: e.currentTarget.checked })}
+          />
+          Переводить старые страницы при первом заходе гостя
+        </label>
+        <span class="hint small">
+          IndexNow: {translateStatus.indexNow ? 'включён — поисковики узнают о новых постах сразу' : 'выключен (нет INDEXNOW_KEY)'}
+        </span>
+      </div>
+
+      <div class="tr-actions">
+        <button class="btn" onclick={() => runTranslate('test')} disabled={translateBusy === 'test'}>
+          {translateBusy === 'test' ? 'Проверка…' : '✓ Проверить ключ'}
+        </button>
+        <button
+          class="btn btn-primary"
+          onclick={() => runTranslate('pending')}
+          disabled={translateBusy === 'pending' || translateStatus.pending.count === 0}
+        >
+          {translateBusy === 'pending'
+            ? 'Перевод…'
+            : `Перевести непереведённое · ${translateStatus.pending.count} постов, ~${num(translateStatus.pending.chars)} симв.`}
+        </button>
+        <button class="btn" onclick={() => runTranslate('about')} disabled={translateBusy === 'about'}>
+          {translateBusy === 'about' ? 'Перевод…' : 'Перевести блок «обо мне»'}
+        </button>
+      </div>
+
+      <h2 class="tr-subhead">Публикации</h2>
+      <div class="rows">
+        {#each translateStatus.posts as p (p.id)}
+          <div class="row">
+            <span class="row-name">{p.title}</span>
+            <span class="hint small">{fmt(p.createdAt)}</span>
+            <span class="post-actions">
+              <span
+                class="chip {p.state === 'ready' ? 'chip-ok' : p.state === 'stale' ? 'chip-stale' : 'chip-off'}"
+                title={p.state === 'stale' ? 'Пост изменился после перевода' : ''}
+              >
+                {p.state === 'ready' ? 'переведён' : p.state === 'stale' ? 'устарел' : 'нет перевода'}
+              </span>
+              {#if p.chars > 0}
+                <span class="hint small">~{num(p.chars)} симв.</span>
+              {/if}
+              <button
+                class="mini"
+                onclick={() => runTranslate('post', p.id)}
+                disabled={translateBusy === `post-${p.id}`}
+                title="Перевести этот пост"
+              >
+                {translateBusy === `post-${p.id}` ? '…' : '⇄'}
+              </button>
+            </span>
+          </div>
+        {/each}
+        {#if translateStatus.posts.length === 0}
+          <p class="hint">Публикаций пока нет.</p>
+        {/if}
+      </div>
+    {/if}
   </section>
 {/if}
 
@@ -1407,6 +1673,7 @@
   }
   .post-actions {
     display: flex;
+    align-items: center;
     gap: 6px;
     flex: none;
   }
@@ -1429,5 +1696,145 @@
   }
   .mini.danger:hover {
     background: rgba(230, 80, 80, 0.3);
+  }
+
+  /* ——— Вкладка «Переводы» ——— */
+  .tr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .tr-card {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: var(--glass-07);
+    border: 1px solid var(--line-13);
+  }
+  .tr-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .tr-title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .tr-bar {
+    height: 8px;
+    border-radius: 6px;
+    background: var(--glass-10);
+    overflow: hidden;
+  }
+  .tr-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: var(--green);
+    transition: width 0.4s;
+  }
+  .tr-bar-fill.warn {
+    background: #e6b45c;
+  }
+  .tr-bar-fill.danger {
+    background: #e07a6a;
+  }
+  .tr-usage {
+    margin-top: 8px;
+    font-size: 13.5px;
+  }
+  .tr-link {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--link);
+  }
+  .tr-providers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .tr-provider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: var(--glass-05);
+    border: 1px solid transparent;
+  }
+  .tr-provider.current {
+    border-color: var(--line-18);
+    background: var(--glass-10);
+  }
+  .tr-provider-name {
+    font-size: 13.5px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 120px;
+  }
+  .tr-alert {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    font-size: 13.5px;
+    background: rgba(230, 180, 92, 0.14);
+    border: 1px solid rgba(230, 180, 92, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .tr-alert.danger {
+    background: rgba(224, 122, 106, 0.14);
+    border-color: rgba(224, 122, 106, 0.42);
+  }
+  .tr-flags {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .tr-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    margin: 0;
+    cursor: pointer;
+  }
+  .tr-check input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--green);
+  }
+  .tr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .tr-subhead {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .chip-ok {
+    background: rgba(139, 226, 143, 0.2);
+    color: var(--green);
+    border: 1px solid rgba(139, 226, 143, 0.4);
+  }
+  .chip-off {
+    background: var(--glass-08);
+    color: var(--fg-55);
+    border: 1px solid var(--line-14);
+  }
+  .chip-stale {
+    background: rgba(230, 180, 92, 0.2);
+    color: #e6b45c;
+    border: 1px solid rgba(230, 180, 92, 0.42);
   }
 </style>

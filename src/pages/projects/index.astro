@@ -9,31 +9,54 @@ import {
 } from '../../lib/queries';
 import { getSetting } from '../../lib/settings';
 import { formatCount } from '../../lib/format';
+import { localePath } from '../../lib/i18n';
+import { t } from '../../lib/i18n/dict';
+import { localizeRepoDescriptions } from '../../lib/translate/content';
+import { breadcrumbJsonLd } from '../../lib/seo';
 
+const lang = Astro.locals.lang;
 const releaseDates = getLatestReleaseDates();
 const defaultSort = normalizeProjectsSort(getSetting('projects_sort'));
 const hard = sortRepos(getVisibleRepos('hard'), defaultSort, releaseDates);
 const vibe = sortRepos(getVisibleRepos('vibe'), defaultSort, releaseDates);
+// Описания короткие — переводим весь список одной пачкой и кешируем
+const descriptions = await localizeRepoDescriptions([...hard, ...vibe], lang);
 
 const sortOptions = [
-  { value: 'released', label: 'Сначала новые релизы' },
-  { value: 'downloads', label: 'По загрузкам' },
-  { value: 'stars', label: 'По звёздам' },
+  { value: 'released', label: t(lang, 'projects.sortReleased') },
+  { value: 'downloads', label: t(lang, 'projects.sortDownloads') },
+  { value: 'stars', label: t(lang, 'projects.sortStars') },
+];
+
+const jsonLd = [
+  breadcrumbJsonLd(
+    [
+      { name: t(lang, 'nav.home'), path: '/' },
+      { name: t(lang, 'projects.heading'), path: '/projects' },
+    ],
+    lang,
+  ),
 ];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
 
-<Base title="Проекты — NORMno" active="projects">
+<Base
+  title={t(lang, 'projects.title')}
+  description={t(lang, 'projects.description')}
+  active="projects"
+  jsonLd={jsonLd}
+  machineTranslated={lang !== 'ru'}
+>
   <main>
     <div class="head">
-      <h1>Проекты</h1>
+      <h1>{t(lang, 'projects.heading')}</h1>
       <div class="tabs glass" role="tablist">
         <button id="tab-hard" class="tab active" role="tab" aria-selected="true" aria-controls="grid-hard" data-ripple>
-          Hard Code
+          {t(lang, 'projects.tabHard')}
         </button>
         <button id="tab-vibe" class="tab" role="tab" aria-selected="false" aria-controls="grid-vibe" data-ripple>
-          Vibe Code ✨
+          {t(lang, 'projects.tabVibe')}
         </button>
       </div>
     </div>
@@ -43,11 +66,11 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
         id="project-search"
         class="search glass-item"
         type="search"
-        placeholder="Поиск по проектам…"
-        aria-label="Поиск по проектам"
+        placeholder={t(lang, 'projects.search')}
+        aria-label={t(lang, 'projects.searchLabel')}
         autocomplete="off"
       />
-      <select id="project-sort" class="sort glass-item" aria-label="Сортировка проектов">
+      <select id="project-sort" class="sort glass-item" aria-label={t(lang, 'projects.sortLabel')}>
         {sortOptions.map((o) => <option value={o.value} selected={o.value === defaultSort}>{o.label}</option>)}
       </select>
     </div>
@@ -58,32 +81,32 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
         { id: 'vibe', list: vibe, hidden: true },
       ].map(({ id, list, hidden }) => (
         <div class="grid" id={`grid-${id}`} role="tabpanel" hidden={hidden}>
-          {list.length === 0 && <p class="empty">В этой категории пока нет проектов.</p>}
+          {list.length === 0 && <p class="empty">{t(lang, 'projects.emptyCategory')}</p>}
           {list.map((p) => (
             <a
               class="card"
-              href={`/projects/${p.name}`}
-              data-search={`${p.name} ${p.description}`.toLowerCase()}
+              href={localePath(`/projects/${p.name}`, lang)}
+              data-search={`${p.name} ${p.description} ${descriptions.get(p.id) ?? ''}`.toLowerCase()}
               data-stars={p.stars}
               data-downloads={p.totalDownloads}
               data-released={releaseDates.get(p.id) || p.pushedAt}
               data-ripple
             >
-              <img class="shot" src={repoImage(p)} alt={`Скриншот проекта ${p.name}`} loading="lazy" />
+              <img class="shot" src={repoImage(p)} alt={t(lang, 'projects.screenshotAlt', { name: p.name })} loading="lazy" />
               <div class="card-info glass">
                 <div class="card-top">
                   <strong>{p.name}</strong>
                   <span class="card-stats">
-                    <span>★ {formatCount(p.stars)}</span>
-                    <span>↓ {formatCount(p.totalDownloads)}</span>
+                    <span>★ {formatCount(p.stars, lang)}</span>
+                    <span>↓ {formatCount(p.totalDownloads, lang)}</span>
                   </span>
                 </div>
-                <div class="card-desc">{p.description}</div>
+                <div class="card-desc">{descriptions.get(p.id) ?? p.description}</div>
               </div>
             </a>
           ))}
           <p class="empty no-results" hidden>
-            По запросу ничего не найдено.
+            {t(lang, 'projects.noResults')}
           </p>
         </div>
       ))

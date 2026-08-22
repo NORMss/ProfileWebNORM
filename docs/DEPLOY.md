@@ -253,6 +253,36 @@ Personal access tokens → Tokens (classic) → Generate new token, отметь
 
 Refresh token сохранится в БД — вручную его получать не нужно.
 
+### 5.4. Автоперевод на английский
+
+1. Получите ключ Google Cloud Translation API (включить **Cloud Translation API**
+   в проекте с биллингом → Credentials → API key). Бесплатно 500 000 символов
+   в месяц; альтернативы — DeepL Free и Azure Translator F0 (2 млн символов).
+2. В `.env`:
+
+   ```env
+   TRANSLATE_PROVIDER=google
+   GOOGLE_TRANSLATE_API_KEY=AIza...
+   TRANSLATE_MONTHLY_LIMIT=450000   # необязательный свой стоп-кран
+   ```
+
+3. `docker compose up -d` → админка → вкладка **Переводы** → **Проверить ключ**.
+
+Там же видно расход месячного лимита, ошибки API и статус перевода каждого
+поста. Подробности и сравнение тарифов: [TRANSLATE.md](TRANSLATE.md).
+
+### 5.5. Поисковики после смены домена
+
+```env
+INDEXNOW_KEY=<32 hex-символа, например openssl rand -hex 16>
+GOOGLE_SITE_VERIFICATION=<content= мета-тега из Search Console>
+YANDEX_VERIFICATION=<content= мета-тега из Вебмастера>
+```
+
+После перезапуска отправьте `https://<домен>/sitemap.xml` в Search Console и
+Вебмастер и оформите «Изменение адреса» со старого домена. Пошаговый
+чек-лист — в [SEO.md](SEO.md).
+
 ## 6. Наполнение сайта
 
 Всё делается в админке `https://admin.normno.com/admin` (Basic Auth):
@@ -262,6 +292,7 @@ Refresh token сохранится в БД — вручную его получ�
 | **Проекты GitHub** | показать/скрыть репозиторий, категория Hard/Vibe, обложка (og-image, картинка из README или своя), сортировка проектов по умолчанию, ручной синк |
 | **Обо мне и ссылки** | фото на главной, текст приветствия в Markdown с превью, ссылки соцсетей, подключение Spotify |
 | **Публикации** | markdown-редактор с превью и фото, публикация/черновик, отправка в Telegram, импорт из канала, массовое удаление чекбоксами, ручной бэкап |
+| **Переводы** | провайдер и остаток месячного лимита API, сравнение бесплатных тарифов, ошибки API, статус перевода каждого поста, ручной перевод и проверка ключа |
 
 ## 7. Данные и бэкапы
 
@@ -422,7 +453,11 @@ echo <GITHUB_TOKEN> | docker login ghcr.io -u NORMss --password-stdin
 | `/` | Главная: «обо мне», релизы, Spotify, тепловая карта |
 | `/projects`, `/projects/<repo>` | Проекты и страница проекта |
 | `/publications`, `/publications/<id>` | Публикации |
-| `/rss.xml` | RSS-лента публикаций |
+| `/en`, `/en/projects`, `/en/publications/<id>` | Английская версия тех же страниц |
+| `/rss.xml`, `/en/rss.xml` | RSS-лента публикаций (русская и английская) |
+| `/sitemap.xml` | Карта сайта обеих языковых версий с hreflang |
+| `/robots.txt` | На публичном хосте — ссылка на sitemap, на админ-хосте — `Disallow: /` |
+| `/<INDEXNOW_KEY>.txt` | Файл-подтверждение ключа IndexNow (если ключ задан) |
 | `/api/now-playing` | JSON текущего трека (кеш 30 с) |
 | `/media/avatar`, `/media/cover/<id>`, `/media/post/<file>` | Загруженные изображения |
 | `https://<ADMIN_HOST>/admin` | Админка (Basic Auth, только этот хост) |
