@@ -309,9 +309,11 @@ export interface LocalizeOptions {
 export interface LocalizeResult {
   /** Поле → текст на нужном языке (или исходник, если перевода ещё нет). */
   values: Record<string, string>;
-  /** Все ли поля реально переведены. */
+  /** Всё показано на нужном языке — пусть даже переводом предыдущей редакции текста. */
   translated: boolean;
-  /** Есть непереведённые поля. */
+  /** Перевод соответствует текущей редакции исходника. */
+  fresh: boolean;
+  /** Часть полей ещё ждёт перевода (текст правили или его вообще не переводили). */
   pending: boolean;
 }
 
@@ -325,26 +327,45 @@ export interface EntityFields {
 // уже запущенный перевод, а не отправляет в API те же символы ещё раз.
 const inFlight = new Map<string, Promise<void>>();
 
-/** Синхронно достаёт из кеша всё, что уже переведено. Ни одного сетевого запроса. */
+/**
+ * Синхронно достаёт из кеша всё, что уже переведено. Ни одного сетевого запроса.
+ *
+ * allowStale — что показывать, если пост правили и перевод отстал: с ним
+ * страница остаётся английской (перевод предыдущей редакции), без него
+ * откатывается на русский. Проверка «нужен ли запрос к API» всегда идёт
+ * по свежести, поэтому устаревший перевод в любом случае будет обновлён.
+ */
 export function cachedFields(
   entity: TranslatableEntity,
   id: string | number,
   fields: FieldSpec[],
   lang: Lang,
+  allowStale = false,
 ): LocalizeResult {
   const values: Record<string, string> = {};
-  let missing = 0;
+  let untranslated = 0;
+  let outdated = 0;
   for (const spec of fields) {
-    const hash = sourceHash(spec.text);
-    const hit = getCached(entity, id, spec.field, lang, hash);
+    const hit = getCached(entity, id, spec.field, lang, sourceHash(spec.text));
+    const empty = !spec.text.trim();
     if (hit?.fresh) {
       values[spec.field] = hit.value;
-    } else {
-      values[spec.field] = spec.text;
-      if (spec.text.trim()) missing++;
+      continue;
     }
+    if (!empty) outdated++;
+    if (hit && allowStale && hit.value.trim()) {
+      values[spec.field] = hit.value;
+      continue;
+    }
+    values[spec.field] = spec.text;
+    if (!empty) untranslated++;
   }
-  return { values, translated: missing === 0, pending: missing > 0 };
+  return {
+    values,
+    translated: untranslated === 0,
+    fresh: outdated === 0,
+    pending: outdated > 0,
+  };
 }
 
 /**
@@ -394,18 +415,25 @@ export async function localizeMany(
   lang: Lang,
   options: LocalizeOptions = {},
 ): Promise<Map<string, LocalizeResult>> {
-  const result = () =>
-    new Map(items.map((item) => [`${item.entity}:${item.id}`, cachedFields(item.entity, item.id, item.fields, lang)]));
+  const result = (allowStale: boolean) =>
+    new Map(
+      items.map((item) => [
+        `${item.entity}:${item.id}`,
+        cachedFields(item.entity, item.id, item.fields, lang, allowStale),
+      ]),
+    );
 
-  if (lang === DEFAULT_LANG) return result();
+  if (lang === DEFAULT_LANG) return result(false);
 
   const allowApi = options.allowApi ?? lazyTranslateOnView();
-  const first = result();
-  if (!allowApi || [...first.values()].every((r) => r.translated)) return first;
+  // Решение «идти ли в API» принимаем по свежести, а не по наличию перевода
+  if (!allowApi || [...result(false).values()].every((r) => r.fresh)) return result(true);
 
   const job = ensureBatch(items, lang);
   if (job) await withTimeout(job, options.timeoutMs ?? 2_500);
-  return result();
+  // Не успели перевести правку (или API недоступен) — лучше прошлый английский
+  // текст, чем внезапно русский посреди английской версии сайта.
+  return result(true);
 }
 
 /** Локализация одной сущности. */

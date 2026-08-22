@@ -26,9 +26,10 @@ export const GET: APIRoute = async ({ locals }) => {
   const items = posts
     .map((p) => {
       const url = `${site}${localePath(`/publications/${p.id}`, lang)}`;
-      const body =
-        cachedFields('post', p.id, [{ field: FIELDS.body, text: p.bodyHtml, html: true }], lang).values[FIELDS.body] ??
-        p.bodyHtml;
+      // allowStale: лента остаётся английской, даже если пост правили
+      // и новый перевод ещё не сделан
+      const body = cachedFields('post', p.id, [{ field: FIELDS.body, text: p.bodyHtml, html: true }], lang, true)
+        .values[FIELDS.body];
       return `    <item>
       <title>${esc(cards.get(p.id)?.title ?? p.title)}</title>
       <link>${url}</link>
