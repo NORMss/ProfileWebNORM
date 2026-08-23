@@ -6,7 +6,7 @@ import { formatDate } from '../../lib/format';
 import { localePath } from '../../lib/i18n';
 import { t } from '../../lib/i18n/dict';
 import { localizePostCards } from '../../lib/translate/content';
-import { breadcrumbJsonLd } from '../../lib/seo';
+import { absoluteAsset, breadcrumbJsonLd } from '../../lib/seo';
 
 const lang = Astro.locals.lang;
 const posts = getPublishedPosts();
@@ -30,6 +30,7 @@ const jsonLd = [
     blogPost: posts.slice(0, 20).map((p) => ({
       '@type': 'BlogPosting',
       headline: cards.get(p.id)?.title ?? p.title,
+      ...(p.coverUrl ? { image: absoluteAsset(p.coverUrl) } : {}),
       datePublished: p.createdAt,
       url: `${localePath(`/publications/${p.id}`, lang)}`,
     })),
@@ -54,21 +55,30 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
       {
         posts.map((p) => (
           <a class="post glass" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
-            <div class="post-head">
-              <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
-                {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
-              </span>
-              {
-                p.tgMessageId && (
-                  <span class="tg-plane" title={t(lang, 'pubs.tgSynced')}>
-                    <Icon name="telegram" size={15} />
-                  </span>
-                )
-              }
-              <span class="date">{formatDate(p.createdAt, lang)}</span>
+            {
+              p.coverUrl && (
+                <div class="cover">
+                  <img src={p.coverThumb || p.coverUrl} alt="" loading="lazy" decoding="async" />
+                </div>
+              )
+            }
+            <div class="post-text">
+              <div class="post-head">
+                <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
+                  {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
+                </span>
+                {
+                  p.tgMessageId && (
+                    <span class="tg-plane" title={t(lang, 'pubs.tgSynced')}>
+                      <Icon name="telegram" size={15} />
+                    </span>
+                  )
+                }
+                <span class="date">{formatDate(p.createdAt, lang)}</span>
+              </div>
+              <h2>{cards.get(p.id)?.title ?? p.title}</h2>
+              <p class="excerpt">{cards.get(p.id)?.excerpt ?? ''}</p>
             </div>
-            <h2>{cards.get(p.id)?.title ?? p.title}</h2>
-            <p class="excerpt">{cards.get(p.id)?.excerpt ?? ''}</p>
           </a>
         ))
       }
@@ -106,7 +116,9 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     color: var(--fg-55);
   }
   .post {
-    display: block;
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(14px, 3vw, 22px);
     border-radius: 26px;
     padding: clamp(16px, 4vw, 28px);
     background: var(--glass-05);
@@ -115,6 +127,35 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   }
   .post:hover {
     background: var(--glass-08);
+  }
+  .post-text {
+    flex: 1;
+    min-width: 0;
+  }
+  /* Место под картинку зарезервировано соотношением сторон — списку нечем дёрнуться,
+     пока грузятся миниатюры (CLS = 0), а размеры файлов знать для этого не нужно. */
+  .cover {
+    flex: none;
+    width: clamp(96px, 22vw, 168px);
+    aspect-ratio: 4 / 3;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--glass-08);
+  }
+  .cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  @media (max-width: 560px) {
+    .post {
+      flex-direction: column;
+    }
+    .cover {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
   }
   .post-head {
     display: flex;

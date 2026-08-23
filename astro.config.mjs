@@ -14,7 +14,8 @@ export default defineConfig({
   server: { host: true, port: 4321 },
   vite: {
     ssr: {
-      external: ['better-sqlite3', 'node-cron'],
+      // sharp — нативный модуль с бинарником libvips, бандлить его нельзя
+      external: ['better-sqlite3', 'node-cron', 'sharp'],
     },
   },
 });

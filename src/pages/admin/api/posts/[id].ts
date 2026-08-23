@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
 import { renderMarkdown } from '../../../../lib/markdown';
+import { coverFor } from '../../../../lib/images';
 import { editPostInTelegram } from '../../../../lib/telegram';
 import { autoTranslateOnPublish, dropTranslations } from '../../../../lib/translate';
 import { translatePostAfterPublish } from '../../../../lib/translate/content';
@@ -22,6 +23,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
   if (typeof body.bodyMd === 'string') {
     set.bodyMd = body.bodyMd;
     set.bodyHtml = renderMarkdown(body.bodyMd);
+    // Картинку могли добавить, убрать или поменять местами — обложку пересчитываем
+    Object.assign(set, coverFor(body.bodyMd));
   }
   if (body.status === 'draft' || body.status === 'published') set.status = body.status;
   db.update(schema.posts).set(set).where(eq(schema.posts.id, id)).run();

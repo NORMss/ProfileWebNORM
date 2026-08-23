@@ -134,6 +134,11 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
           <div class="post-list">
             {posts.map((p) => (
               <a class="post glass-item" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
+                {p.coverUrl && (
+                  <div class="post-cover">
+                    <img src={p.coverThumb || p.coverUrl} alt="" loading="lazy" decoding="async" />
+                  </div>
+                )}
                 <div class="post-head">
                   <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
                     {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
@@ -390,6 +395,20 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   }
   .post:hover {
     background: var(--glass-08);
+  }
+  /* Соотношение сторон держит место под миниатюру до её загрузки */
+  .post-cover {
+    aspect-ratio: 16 / 9;
+    margin: -4px 0 10px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--glass-08);
+  }
+  .post-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .post-head {
     display: flex;
