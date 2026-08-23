@@ -180,7 +180,12 @@ const nav = [
   .page {
     min-height: 100vh;
     position: relative;
-    overflow-x: hidden;
+    /* Именно clip, а не hidden: hidden по одной оси заставляет браузер сделать
+       вторую ось прокручиваемой, и .page превращается во вложенный скролл-контейнер.
+       На тач-экранах он съедает свайп при смене направления — страница
+       «залипает», как будто кончилась. Горизонтально страницу всё равно
+       обрезает body (overflow-x: hidden в global.css). */
+    overflow-x: clip;
   }
   .blobs {
     position: fixed;
@@ -262,11 +267,13 @@ const nav = [
     background: var(--active);
   }
 
-  /* Сноска о машинном переводе — тихая строка внизу переведённой страницы */
+  /* Сноска о машинном переводе — тихая строка внизу переведённой страницы.
+     Без отрицательных отступов: они наезжали на нижнюю часть main и меняли
+     высоту страницы только в английской версии. */
   .mt-note {
     position: relative;
     z-index: 1;
-    margin: -48px auto 32px;
+    margin: 0 auto 40px;
     padding: 0 clamp(14px, 4vw, 24px);
     max-width: 1060px;
     font-size: 12px;
