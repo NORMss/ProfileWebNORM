@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS posts (
   tg_message_id INTEGER,
   cover_url TEXT NOT NULL DEFAULT '',
   cover_thumb TEXT NOT NULL DEFAULT '',
+  excerpt TEXT NOT NULL DEFAULT '',
+  body_hash TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -117,6 +119,10 @@ function createDb() {
     "ALTER TABLE repos ADD COLUMN readme_images TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE posts ADD COLUMN cover_url TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE posts ADD COLUMN cover_thumb TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE posts ADD COLUMN excerpt TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE posts ADD COLUMN body_hash TEXT NOT NULL DEFAULT ''",
+    'CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(status, created_at DESC)',
+    'CREATE INDEX IF NOT EXISTS idx_repos_visible ON repos(visible, category)',
   ]) {
     try {
       sqlite.exec(ddl);

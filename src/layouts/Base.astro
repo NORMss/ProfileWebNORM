@@ -26,6 +26,10 @@ interface Props {
   /** Даты публикации/правки для og:article */
   publishedTime?: string;
   modifiedTime?: string;
+  /** Картинка, с которой начинается первый экран: браузер узнаёт о ней из <head>, не дожидаясь разметки */
+  preloadImage?: string;
+  /** Внешние хосты картинок этой страницы — соединение открывается заранее */
+  preconnect?: string[];
 }
 
 const lang: Lang = Astro.locals.lang ?? DEFAULT_LANG;
@@ -43,6 +47,8 @@ const {
   jsonLd = [],
   publishedTime,
   modifiedTime,
+  preloadImage,
+  preconnect = [],
 } = Astro.props;
 
 const site = config.siteUrl.replace(/\/$/, '');
@@ -62,10 +68,17 @@ const nav = [
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    {/* Масштабирование не запрещаем: двойной тап-зум и так снят через touch-action,
+        а user-scalable=no отбирает у людей возможность увеличить мелкий текст. */}
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>{title}</title>
+
+    {/* Соединение с чужими хостами картинок стоит DNS + TLS — начинаем его
+        параллельно с разбором HTML, а не в момент встречи <img>. */}
+    {preconnect.map((origin) => <link rel="preconnect" href={origin} crossorigin />)}
+    {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
 
     {/* Каноникал и hreflang: у русской и английской версии разные URL, но одна страница */}
     <link rel="canonical" href={canonical} />
@@ -147,6 +160,12 @@ const nav = [
 
     {!hideNav && <LangSwitcher lang={lang} path={path} />}
 
+    {/* WebMCP: инструменты страницы для ИИ-агентов. Файл грузится только там, где
+        браузер действительно даёт этот API, — обычному посетителю он не стоит ни байта. */}
+    <script is:inline type="module">
+      if (navigator.modelContext || document.modelContext) import('/webmcp.js');
+    </script>
+
     <script>
       // Ripple-эффект (делегирование) — единственный глобальный JS на публичных страницах.
       document.addEventListener('click', (e) => {
@@ -195,15 +214,29 @@ const nav = [
   }
   .blob-a {
     background: var(--blob-a);
-    animation: blobA 14s ease-in-out infinite;
   }
   .blob-b {
     background: var(--blob-b);
-    animation: blobB 14s ease-in-out infinite;
   }
   .blob-c {
     background: var(--blob-c);
-    animation: blobA 14s ease-in-out infinite;
+  }
+
+  /* Движущийся размытый фон под «стеклом» заставляет браузер пересчитывать
+     backdrop-filter каждый кадр — на телефоне это самая дорогая анимация на
+     странице. Оставляем её там, где она бесплатна: широкий экран, мышь,
+     и посетитель не просил убрать анимации. */
+  @media (min-width: 900px) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .blob {
+      will-change: transform;
+    }
+    .blob-a,
+    .blob-c {
+      animation: blobA 14s ease-in-out infinite;
+    }
+    .blob-b {
+      animation: blobB 14s ease-in-out infinite;
+    }
   }
 
   .nav-wrap {
@@ -277,7 +310,9 @@ const nav = [
     padding: 0 clamp(14px, 4vw, 24px);
     max-width: 1060px;
     font-size: 12px;
-    color: var(--fg-45);
+    /* Не --fg-45: на светлой теме мелкий текст этим цветом не добирает
+       контраст 4.5:1, которого требует WCAG AA. */
+    color: var(--fg-60);
     text-align: center;
   }
 </style>

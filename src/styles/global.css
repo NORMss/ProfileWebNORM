@@ -2,6 +2,10 @@
    Тёмная палитра — по макету Portfolio (dark), светлая — по Portfolio.dc.html.
    Переключение автоматическое через prefers-color-scheme. */
 :root {
+  /* Радиус backdrop-filter у «стекла». На узких экранах он меньше: размытие
+     подложки — самая дорогая операция отрисовки, а на телефоне разница
+     между 28 и 12 пикселями почти не читается. */
+  --glass-blur: 28px;
   --bg: #07080f;
   --fg: #f2f3f8;
   --fg-65: rgba(255, 255, 255, 0.65);
@@ -71,11 +75,15 @@
   :root {
     --bg: #f2ead9;
     --fg: #3a3226;
-    --fg-65: rgba(58, 50, 38, 0.82);
-    --fg-60: rgba(80, 66, 46, 0.8);
-    --fg-55: rgba(80, 66, 46, 0.75);
-    --fg-50: rgba(94, 78, 54, 0.7);
-    --fg-45: rgba(94, 78, 54, 0.6);
+    /* Приглушённые оттенки на светлой теме считаются от основного цвета текста
+       и с такой прозрачностью, чтобы даже 12-пиксельная подпись на самой светлой
+       «стеклянной» подложке брала контраст 4.5:1 (WCAG AA). Прежние значения
+       давали 3.5:1 на датах публикаций и 4.3:1 на подзаголовках. */
+    --fg-65: rgba(58, 50, 38, 0.88);
+    --fg-60: rgba(58, 50, 38, 0.84);
+    --fg-55: rgba(58, 50, 38, 0.8);
+    --fg-50: rgba(58, 50, 38, 0.76);
+    --fg-45: rgba(58, 50, 38, 0.72);
     --text-body: rgba(58, 50, 38, 0.78);
     --glass-05: rgba(255, 252, 244, 0.5);
     --glass-06: rgba(255, 252, 244, 0.55);
@@ -279,8 +287,14 @@ a {
 .glass {
   background: var(--glass-06);
   border: 1px solid var(--line-13);
-  backdrop-filter: blur(28px) saturate(1.5);
-  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+}
+
+@media (max-width: 700px) {
+  :root {
+    --glass-blur: 12px;
+  }
 }
 
 .glass-item {

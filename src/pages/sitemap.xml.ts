@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getPublishedPosts, getVisibleRepos } from '../lib/queries';
+import { getPublishedPostCards, getVisibleRepoCards } from '../lib/queries';
 import { LOCALES } from '../lib/i18n';
 import { absoluteUrl } from '../lib/seo';
 
@@ -25,8 +25,9 @@ function iso(value: string): string | undefined {
  * hreflang-альтернативы, чтобы Google не считал /en/... дублем.
  */
 export const GET: APIRoute = async () => {
-  const repos = getVisibleRepos();
-  const posts = getPublishedPosts();
+  // Карте нужны только имена и даты — README и тексты постов сюда не читаем
+  const repos = getVisibleRepoCards();
+  const posts = getPublishedPostCards();
   const newestPost = posts[0]?.updatedAt || posts[0]?.createdAt || '';
   const newestRepo = repos.map((r) => r.pushedAt).sort().at(-1) ?? '';
 

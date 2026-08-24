@@ -66,6 +66,64 @@ export async function makeThumb(file: string): Promise<string> {
 }
 
 /**
+ * Уменьшенная WebP-копия загруженного файла рядом с оригиналом.
+ *
+ * Аватар и обложки проектов админка кладёт как есть — это могут быть PNG на
+ * несколько мегабайт, а показываются они в кружке 220 px и в карточке ~500 px.
+ * Копия делается один раз (и заново, если оригинал перезалили) и потом только
+ * отдаётся с диска, поэтому запрос за картинкой ничего не пересчитывает.
+ * Возвращает путь к копии или '' — тогда вызывающий отдаёт оригинал.
+ */
+const resizing = new Map<string, Promise<string>>();
+
+export async function resizedWebp(source: string, width: number): Promise<string> {
+  const out = source.replace(/\.[a-z0-9]+$/i, '') + `-${width}.webp`;
+  try {
+    const [src, dst] = await Promise.all([
+      fs.promises.stat(source),
+      fs.promises.stat(out).catch(() => null),
+    ]);
+    if (dst && dst.mtimeMs >= src.mtimeMs) return out;
+  } catch {
+    return '';
+  }
+  // Сразу после загрузки нового файла за копией может прийти несколько
+  // запросов одновременно: делаем её один раз, остальные ждут тот же результат.
+  const inFlight = resizing.get(out);
+  if (inFlight) return inFlight;
+
+  const job = (async () => {
+    const sharp = await loadSharp();
+    if (!sharp) return '';
+    // Пишем во временный файл и переименовываем: rename атомарен, поэтому
+    // параллельный запрос читает либо старую копию целиком, либо новую целиком,
+    // но никогда недописанную — а отдаём мы её с годовым кешем.
+    const tmp = `${out}.${process.pid}.tmp`;
+    try {
+      await sharp
+        .default(source, { limitInputPixels: 50_000_000 })
+        .rotate()
+        .resize({ width, withoutEnlargement: true })
+        .webp({ quality: 78 })
+        .toFile(tmp);
+      await fs.promises.rename(tmp, out);
+      return out;
+    } catch (e) {
+      console.error(`[images] не удалось уменьшить ${source}:`, e);
+      await fs.promises.rm(tmp, { force: true }).catch(() => {});
+      return '';
+    }
+  })();
+
+  resizing.set(out, job);
+  try {
+    return await job;
+  } finally {
+    resizing.delete(out);
+  }
+}
+
+/**
  * Первая картинка поста, если она лежит у нас (/media/post/…). Внешние ссылки
  * в обложку не берём: чужой хост может отдать что угодно, отвалиться или
  * посчитать наших читателей, а обложка уходит ещё и в og:image.

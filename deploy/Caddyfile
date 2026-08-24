@@ -5,6 +5,16 @@
 	@admin path /admin /admin/*
 	respond @admin 404
 
+	# Собранные файлы Astro: имя содержит хеш содержимого, новая сборка даёт
+	# новое имя — такие можно кешировать навсегда.
+	@hashed path /_astro/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	# Остальная статика имя не меняет: кешируем на сутки, чтобы правка
+	# доезжала до посетителей без ручной чистки кеша.
+	@static path /icons/* /favicon.svg /avatar.svg /webmcp.js
+	header @static Cache-Control "public, max-age=86400"
+
 	reverse_proxy site-app:4321
 }
 

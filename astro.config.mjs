@@ -12,6 +12,12 @@ export default defineConfig({
   // из-за несовпадения схемы https/http.
   security: { checkOrigin: false },
   server: { host: true, port: 4321 },
+  build: {
+    // Стили публичных страниц — это ~20 КБ на страницу (после сжатия около 4).
+    // Отдельным файлом они стоят лишнего похода на сервер перед первой
+    // отрисовкой, а CDN перед сайтом нет: инлайним прямо в HTML.
+    inlineStylesheets: 'always',
+  },
   vite: {
     ssr: {
       // sharp — нативный модуль с бинарником libvips, бандлить его нельзя

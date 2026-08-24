@@ -18,7 +18,8 @@ function cdata(s: string): string {
 export const GET: APIRoute = async ({ locals }) => {
   const lang = locals.lang ?? DEFAULT_LANG;
   const site = config.siteUrl.replace(/\/$/, '');
-  const posts = getPublishedPosts().slice(0, 50);
+  // Лимит в запросе, а не срезом: тела постов тяжёлые, лишние читать незачем
+  const posts = getPublishedPosts(50);
   const lastBuild = posts[0]?.createdAt ? new Date(posts[0].createdAt) : new Date();
   // Лента берёт только готовые переводы: тратить лимит API на запрос робота-читалки незачем
   const cards = await localizePostCards(posts, lang, { allowApi: false });

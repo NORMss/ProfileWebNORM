@@ -1,17 +1,37 @@
 ---
 import Base from '../../layouts/Base.astro';
-import Icon from '../../components/Icon.astro';
-import { getPublishedPosts } from '../../lib/queries';
+import { countPublishedPosts, getPublishedPostCards } from '../../lib/queries';
+import { postCardHtml } from '../../lib/cards';
 import { formatDate } from '../../lib/format';
 import { localePath } from '../../lib/i18n';
 import { t } from '../../lib/i18n/dict';
 import { localizePostCards } from '../../lib/translate/content';
 import { absoluteAsset, breadcrumbJsonLd } from '../../lib/seo';
+import { PUBS_PAGE_SIZE } from '../api/publications';
 
 const lang = Astro.locals.lang;
-const posts = getPublishedPosts();
+// ?all=1 — версия без подгрузки: для браузеров без JS (ссылка в <noscript>)
+const showAll = Astro.url.searchParams.get('all') === '1';
+const total = countPublishedPosts();
+const posts = showAll ? getPublishedPostCards() : getPublishedPostCards(PUBS_PAGE_SIZE);
+const hasMore = !showAll && posts.length < total;
 // Для списка переводим только заголовок и превью: тело поста — при заходе на страницу
 const cards = await localizePostCards(posts, lang);
+
+const listHtml = posts
+  .map((p) =>
+    postCardHtml({
+      href: localePath(`/publications/${p.id}`, lang),
+      title: cards.get(p.id)?.title ?? p.title,
+      excerpt: cards.get(p.id)?.excerpt ?? p.excerpt,
+      cover: p.coverThumb || p.coverUrl,
+      badge: p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin'),
+      telegram: p.source === 'telegram',
+      tgTitle: t(lang, 'pubs.tgSynced'),
+      date: formatDate(p.createdAt, lang),
+    }),
+  )
+  .join('');
 
 const jsonLd = [
   breadcrumbJsonLd(
@@ -50,41 +70,79 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   <main>
     <h1>{t(lang, 'pubs.heading')}</h1>
     <p class="lead">{t(lang, 'pubs.lead')}</p>
-    <div class="list">
-      {posts.length === 0 && <p class="empty">{t(lang, 'pubs.empty')}</p>}
-      {
-        posts.map((p) => (
-          <a class="post glass" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
-            {
-              p.coverUrl && (
-                <div class="cover">
-                  <img src={p.coverThumb || p.coverUrl} alt="" loading="lazy" decoding="async" />
-                </div>
-              )
-            }
-            <div class="post-text">
-              <div class="post-head">
-                <span class:list={['badge', p.source === 'telegram' ? 'badge-tg' : 'badge-admin']}>
-                  {p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin')}
-                </span>
-                {
-                  p.tgMessageId && (
-                    <span class="tg-plane" title={t(lang, 'pubs.tgSynced')}>
-                      <Icon name="telegram" size={15} />
-                    </span>
-                  )
-                }
-                <span class="date">{formatDate(p.createdAt, lang)}</span>
-              </div>
-              <h2>{cards.get(p.id)?.title ?? p.title}</h2>
-              <p class="excerpt">{cards.get(p.id)?.excerpt ?? ''}</p>
-            </div>
-          </a>
-        ))
-      }
-    </div>
+    <div class="list" id="pub-list" set:html={listHtml} />
+    {posts.length === 0 && <p class="empty">{t(lang, 'pubs.empty')}</p>}
+    {
+      hasMore && (
+        <div
+          id="pub-more"
+          class="more"
+          data-offset={posts.length}
+          data-lang={lang}
+          data-size={PUBS_PAGE_SIZE}
+          aria-live="polite"
+        >
+          {/* Спиннер показывает скрипт: без JS крутиться нечему, там ссылка ниже */}
+          <span class="spinner" id="pub-spinner" hidden aria-hidden="true" />
+          <noscript>
+            <a class="btn-ghost" href={`?all=1`}>
+              {t(lang, 'pubs.loadMore')}
+            </a>
+          </noscript>
+        </div>
+      )
+    }
   </main>
 </Base>
+
+<script>
+  /**
+   * Подгрузка публикаций при прокрутке: страница отдаёт первую пачку, дальше
+   * карточки приезжают готовым HTML из /api/publications. Наблюдатель стоит
+   * на «подвале» списка с запасом в пол-экрана, чтобы к моменту, когда список
+   * кончится, следующая пачка уже была на месте.
+   */
+  const more = document.getElementById('pub-more');
+  const list = document.getElementById('pub-list');
+  const spinner = document.getElementById('pub-spinner');
+  if (more && list) {
+    if (spinner) spinner.hidden = false;
+    let offset = Number(more.dataset.offset ?? 0);
+    const lang = more.dataset.lang ?? 'ru';
+    const size = Number(more.dataset.size ?? 8);
+    let loading = false;
+    let done = false;
+
+    const loadMore = async () => {
+      if (loading || done) return;
+      loading = true;
+      try {
+        const res = await fetch(`/api/publications?offset=${offset}&limit=${size}&lang=${lang}`);
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { html: string; nextOffset: number; hasMore: boolean };
+        list.insertAdjacentHTML('beforeend', data.html);
+        offset = data.nextOffset;
+        if (!data.hasMore) {
+          done = true;
+          observer.disconnect();
+          more.remove();
+        }
+      } catch {
+        // Сеть отвалилась — оставляем что есть, следующая попытка при новой прокрутке
+      } finally {
+        loading = false;
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadMore();
+      },
+      { rootMargin: '600px 0px' },
+    );
+    observer.observe(more);
+  }
+</script>
 
 <style>
   main {
@@ -105,36 +163,72 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     font-size: 14.5px;
     color: var(--fg-55);
   }
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
   .empty {
     margin: 0;
     font-size: 14.5px;
     color: var(--fg-55);
   }
-  .post {
+  .more {
+    display: flex;
+    justify-content: center;
+    padding: 26px 0 4px;
+    min-height: 56px;
+  }
+  .spinner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--line-15);
+    border-top-color: var(--fg-50);
+    animation: pubSpin 0.8s linear infinite;
+  }
+  @keyframes pubSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Карточка публикации: класс глобальный, потому что ту же разметку рисует
+     клиент при подгрузке — scoped-атрибуты Astro на неё бы не попали. */
+  #pub-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pub {
     display: flex;
     align-items: flex-start;
     gap: clamp(14px, 3vw, 22px);
     border-radius: 26px;
     padding: clamp(16px, 4vw, 28px);
     background: var(--glass-05);
+    border: 1px solid var(--line-13);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     text-decoration: none;
     transition: background 0.25s;
+    /* Карточки ниже экрана браузер не размечает и не рисует, пока до них
+       не дошла прокрутка; contain-intrinsic-size держит длину полосы прокрутки. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 190px;
   }
-  .post:hover {
+  .pub:hover {
     background: var(--glass-08);
   }
-  .post-text {
+  .pub-text {
     flex: 1;
     min-width: 0;
   }
   /* Место под картинку зарезервировано соотношением сторон — списку нечем дёрнуться,
      пока грузятся миниатюры (CLS = 0), а размеры файлов знать для этого не нужно. */
-  .cover {
+  .pub-cover {
     flex: none;
     width: clamp(96px, 22vw, 168px);
     aspect-ratio: 4 / 3;
@@ -142,42 +236,42 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     overflow: hidden;
     background: var(--glass-08);
   }
-  .cover img {
+  .pub-cover img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
   @media (max-width: 560px) {
-    .post {
+    .pub {
       flex-direction: column;
     }
-    .cover {
+    .pub-cover {
       width: 100%;
       aspect-ratio: 16 / 9;
     }
   }
-  .post-head {
+  .pub-head {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
   }
-  .date {
+  .pub-date {
     font-size: 12.5px;
     color: var(--fg-50);
     white-space: nowrap;
   }
-  .tg-plane {
+  .pub-plane {
     display: inline-flex;
     color: #2a97e1;
   }
-  h2 {
+  .pub-title {
     margin: 0 0 8px;
     font-size: 19px;
     font-weight: 700;
   }
-  .excerpt {
+  .pub-excerpt {
     margin: 0;
     font-size: 14.5px;
     line-height: 1.55;

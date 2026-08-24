@@ -2,21 +2,21 @@
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
 import Heatmap from '../components/Heatmap.astro';
-import SpotifyWidget from '../components/SpotifyWidget.svelte';
+import SpotifyWidget from '../components/SpotifyWidget.astro';
 import { getAbout, getAboutHtml, getAvatarUrl, getSetting } from '../lib/settings';
-import { getLatestUpdates, getPublishedPosts, repoImage } from '../lib/queries';
+import { getLatestUpdates, getPublishedPostCards, repoImage } from '../lib/queries';
 import { formatCount, formatDate } from '../lib/format';
 import { getNowPlaying } from '../lib/spotify';
 import { localePath } from '../lib/i18n';
 import { t } from '../lib/i18n/dict';
 import { localizeAbout, localizePostCards, localizeRepoDescriptions } from '../lib/translate/content';
-import { personJsonLd, webSiteJsonLd } from '../lib/seo';
+import { imageOrigins, personJsonLd, webSiteJsonLd } from '../lib/seo';
 
 const lang = Astro.locals.lang;
 const about = getAbout();
 const avatarUrl = getAvatarUrl();
 const updates = getLatestUpdates(3);
-const posts = getPublishedPosts(3);
+const posts = getPublishedPostCards(3);
 const nowPlaying = await getNowPlaying();
 
 // Перевод главной: блок «обо мне», описания проектов и карточки публикаций.
@@ -49,6 +49,10 @@ const links = [
 
 const jsonLd = [personJsonLd(lang, about), webSiteJsonLd(lang)];
 
+// Миниатюры релизов живут на opengraph.githubassets.com, обложка трека — на CDN
+// Spotify: соединение с ними открываем из <head>, не дожидаясь встречи с <img>.
+const preconnect = imageOrigins([...updates.map((u) => repoImage(u.repo)), nowPlaying.track?.coverUrl]);
+
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
 
@@ -58,11 +62,21 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   active="home"
   jsonLd={jsonLd}
   machineTranslated={lang !== 'ru'}
+  preloadImage={avatarUrl}
+  preconnect={preconnect}
 >
   <main>
     <section class="hero glass">
       <div class="hero-row">
-        <img class="avatar" src={avatarUrl} alt={t(lang, 'home.avatarAlt')} width="104" height="104" />
+        <img
+          class="avatar"
+          src={avatarUrl}
+          alt={t(lang, 'home.avatarAlt')}
+          width="220"
+          height="220"
+          fetchpriority="high"
+          decoding="async"
+        />
         <div class="hero-body">
           <div class="hero-text md-body" set:html={aboutHtml} />
           <div class="social-row">
@@ -119,7 +133,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
         </div>
       </section>
 
-      <SpotifyWidget client:load initial={nowPlaying} lang={lang} />
+      <SpotifyWidget initial={nowPlaying} lang={lang} />
     </div>
 
     {
@@ -136,7 +150,14 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
               <a class="post glass-item" href={localePath(`/publications/${p.id}`, lang)} data-ripple>
                 {p.coverUrl && (
                   <div class="post-cover">
-                    <img src={p.coverThumb || p.coverUrl} alt="" loading="lazy" decoding="async" />
+                    <img
+                      src={p.coverThumb || p.coverUrl}
+                      alt=""
+                      width="336"
+                      height="189"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                 )}
                 <div class="post-head">
@@ -367,6 +388,9 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     padding: clamp(18px, 4vw, 28px);
     background: var(--glass-05);
     box-shadow: var(--shadow-md);
+    /* Блок всегда ниже первого экрана: до прокрутки его не размечаем и не рисуем */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
   }
   .all {
     margin-left: auto;

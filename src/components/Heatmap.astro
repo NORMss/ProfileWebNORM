@@ -96,6 +96,10 @@ const showToggle = claude !== null;
     padding: clamp(18px, 4vw, 28px);
     background: var(--glass-05);
     box-shadow: var(--shadow-md);
+    /* Карта — это ~370 ячеек в самом низу страницы: до прокрутки браузер
+       не тратит на их разметку и отрисовку ни кадра. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 220px;
   }
   .head {
     display: flex;

@@ -16,7 +16,10 @@ interface Props {
 const { lang, path } = Astro.props;
 const target = otherLang(lang);
 const href = `${localePath(path, target)}?${LANG_QUERY}=${target}`;
-const label = t(lang, 'lang.switchTo');
+const code = target.toUpperCase();
+// Доступное имя начинается с видимой надписи (RU/EN): так голосовое управление
+// находит кнопку по тому, что человек видит на экране.
+const label = `${code} — ${t(lang, 'lang.switchTo')}`;
 ---
 
 <a class="lang-switch" href={href} title={label} aria-label={label} hreflang={target} rel="alternate" data-ripple>
@@ -25,7 +28,7 @@ const label = t(lang, 'lang.switchTo');
     <path d="M3.2 9.5h17.6M3.2 14.5h17.6"></path>
     <path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"></path>
   </svg>
-  <span class="code">{target.toUpperCase()}</span>
+  <span class="code">{code}</span>
 </a>
 
 <style>

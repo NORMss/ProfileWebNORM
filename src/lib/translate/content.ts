@@ -1,5 +1,5 @@
 import { excerpt, excerptFromHtml } from '../markdown';
-import type { Post, Repo } from '../queries';
+import type { Post, PostCard, Repo } from '../queries';
 import { DEFAULT_LANG, type Lang } from '../i18n';
 import { getSetting } from '../settings';
 import {
@@ -33,7 +33,15 @@ export interface LocalizedPost {
 
 /** Перевод текущей редакции текста; null — его нет или он устарел. */
 function freshValue(entity: 'post' | 'repo' | 'setting', id: string | number, field: string, lang: Lang, source: string) {
-  const hit = getCached(entity, id, field, lang, sourceHash(source));
+  return freshByHash(entity, id, field, lang, sourceHash(source));
+}
+
+/**
+ * То же, но по готовому хешу исходника. Карточкам публикаций так не нужно
+ * держать в памяти тело поста ради одного sourceHash — хеш лежит в posts.body_hash.
+ */
+function freshByHash(entity: 'post' | 'repo' | 'setting', id: string | number, field: string, lang: Lang, hash: string) {
+  const hit = getCached(entity, id, field, lang, hash);
   return hit?.fresh ? hit.value : null;
 }
 
@@ -49,7 +57,17 @@ function displayValue(
   lang: Lang,
   source: string,
 ): string | null {
-  const hit = getCached(entity, id, field, lang, sourceHash(source));
+  return displayByHash(entity, id, field, lang, sourceHash(source));
+}
+
+function displayByHash(
+  entity: 'post' | 'repo' | 'setting',
+  id: string | number,
+  field: string,
+  lang: Lang,
+  hash: string,
+): string | null {
+  const hit = getCached(entity, id, field, lang, hash);
   return hit && hit.value.trim() ? hit.value : null;
 }
 
@@ -57,10 +75,10 @@ function displayValue(
  * Поля поста для карточки в списке: заголовок и превью.
  * Если тело поста уже переведено, превью берётся из него — лишние символы не тратим.
  */
-function postCardFields(post: Post, lang: Lang): FieldSpec[] {
-  const fields: FieldSpec[] = [{ field: FIELDS.title, text: post.title }];
-  if (!freshValue('post', post.id, FIELDS.body, lang, post.bodyHtml)) {
-    fields.push({ field: FIELDS.excerpt, text: excerpt(post.bodyMd) });
+function postCardFields(card: PostCard, lang: Lang): FieldSpec[] {
+  const fields: FieldSpec[] = [{ field: FIELDS.title, text: card.title }];
+  if (!freshByHash('post', card.id, FIELDS.body, lang, card.bodyHash)) {
+    fields.push({ field: FIELDS.excerpt, text: card.excerpt });
   }
   return fields;
 }
@@ -76,29 +94,28 @@ export function postFields(post: Post): FieldSpec[] {
 
 /** Карточки публикаций (главная и список) — одной пачкой, чтобы не дёргать API по посту. */
 export async function localizePostCards(
-  posts: Post[],
+  cards: PostCard[],
   lang: Lang,
   options?: LocalizeOptions,
 ): Promise<Map<number, { title: string; excerpt: string }>> {
-  const fallback = () =>
-    new Map(posts.map((p) => [p.id, { title: p.title, excerpt: excerpt(p.bodyMd) }]));
-  if (lang === DEFAULT_LANG || posts.length === 0) return fallback();
+  const fallback = () => new Map(cards.map((c) => [c.id, { title: c.title, excerpt: c.excerpt }]));
+  if (lang === DEFAULT_LANG || cards.length === 0) return fallback();
 
-  const items: EntityFields[] = posts.map((post) => ({
+  const items: EntityFields[] = cards.map((card) => ({
     entity: 'post' as const,
-    id: post.id,
-    fields: postCardFields(post, lang),
+    id: card.id,
+    fields: postCardFields(card, lang),
   }));
   await localizeMany(items, lang, options);
 
   return new Map(
-    posts.map((post) => {
-      const body = displayValue('post', post.id, FIELDS.body, lang, post.bodyHtml);
-      const title = displayValue('post', post.id, FIELDS.title, lang, post.title) ?? post.title;
+    cards.map((card) => {
+      const body = displayByHash('post', card.id, FIELDS.body, lang, card.bodyHash);
+      const title = displayValue('post', card.id, FIELDS.title, lang, card.title) ?? card.title;
       const preview =
-        displayValue('post', post.id, FIELDS.excerpt, lang, excerpt(post.bodyMd)) ??
-        (body ? excerptFromHtml(body) : excerpt(post.bodyMd));
-      return [post.id, { title, excerpt: preview }];
+        displayValue('post', card.id, FIELDS.excerpt, lang, card.excerpt) ??
+        (body ? excerptFromHtml(body) : card.excerpt);
+      return [card.id, { title, excerpt: preview }];
     }),
   );
 }
@@ -124,7 +141,7 @@ export async function localizePost(post: Post, lang: Lang, options?: LocalizeOpt
 
 /** Описания проектов для карточек и списков. */
 export async function localizeRepoDescriptions(
-  repos: Repo[],
+  repos: Pick<Repo, 'id' | 'description'>[],
   lang: Lang,
   options?: LocalizeOptions,
 ): Promise<Map<number, string>> {

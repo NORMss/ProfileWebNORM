@@ -5,6 +5,7 @@ import { syncGithub } from './github';
 import { syncTelegram } from './telegram';
 import { runBackup } from '../backup';
 import { backfillPostCovers } from '../images';
+import { backfillPostExcerpts } from '../posts';
 
 let running = false;
 
@@ -60,6 +61,7 @@ export function startScheduler(): void {
   // Обложки для постов, которые появились до этой фичи, и потерянные миниатюры.
   // Разовый проход в фоне: на заполненной базе это только регэксп и stat по посту.
   setTimeout(() => {
+    backfillPostExcerpts();
     backfillPostCovers().catch((e) => console.error('[images] backfill обложек не удался:', e));
   }, 8_000);
 }
