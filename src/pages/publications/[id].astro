@@ -26,7 +26,14 @@ const path = `/publications/${post.id}`;
 
 const jsonLd = [
   blogPostingJsonLd(
-    { title: content.title, excerpt: content.excerpt, createdAt: post.createdAt, updatedAt: post.updatedAt, path },
+    {
+      title: content.title,
+      excerpt: content.excerpt,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+      path,
+      image: post.coverUrl,
+    },
     lang,
   ),
   breadcrumbJsonLd(
@@ -47,6 +54,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   description={content.excerpt}
   active="pubs"
   ogType="article"
+  image={post.coverUrl || undefined}
   jsonLd={jsonLd}
   publishedTime={post.createdAt}
   modifiedTime={post.updatedAt}

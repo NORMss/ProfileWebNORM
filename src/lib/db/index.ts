@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS posts (
   source TEXT NOT NULL DEFAULT 'admin',
   status TEXT NOT NULL DEFAULT 'published',
   tg_message_id INTEGER,
+  cover_url TEXT NOT NULL DEFAULT '',
+  cover_thumb TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -113,6 +115,8 @@ function createDb() {
   for (const ddl of [
     "ALTER TABLE repos ADD COLUMN cover_file TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE repos ADD COLUMN readme_images TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE posts ADD COLUMN cover_url TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE posts ADD COLUMN cover_thumb TEXT NOT NULL DEFAULT ''",
   ]) {
     try {
       sqlite.exec(ddl);

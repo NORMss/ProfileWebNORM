@@ -7,6 +7,7 @@ import { config } from '../config';
 import { renderMarkdown } from '../markdown';
 import { getSetting, setSetting } from '../settings';
 import { uploadsDir } from '../uploads';
+import { coverFor, makeThumb } from '../images';
 import { autoTranslateOnPublish } from '../translate';
 import { translatePostsInBackground } from '../translate/content';
 import { pingIndexNowInBackground } from '../indexnow';
@@ -93,6 +94,8 @@ async function downloadPhoto(token: string, msg: TgMessage): Promise<string | nu
     fs.mkdirSync(dir, { recursive: true });
     const name = `tg-${Date.now()}-${crypto.randomBytes(3).toString('hex')}.${ext}`;
     fs.writeFileSync(path.join(dir, name), Buffer.from(await bin.arrayBuffer()));
+    // Миниатюра — здесь же, при импорте: страницы потом только отдают готовый файл
+    await makeThumb(name);
     return `/media/post/${name}`;
   } catch (e) {
     console.error('[tg] не удалось скачать фото:', e);
@@ -106,7 +109,7 @@ function appendPhotoToPost(postId: number, photoUrl: string): void {
   if (!post) return;
   const bodyMd = `${post.bodyMd}\n\n![](${photoUrl})`.trim();
   db.update(schema.posts)
-    .set({ bodyMd, bodyHtml: renderMarkdown(bodyMd) })
+    .set({ bodyMd, bodyHtml: renderMarkdown(bodyMd), ...coverFor(bodyMd) })
     .where(eq(schema.posts.id, postId))
     .run();
 }
@@ -190,6 +193,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
           title,
           bodyMd,
           bodyHtml: renderMarkdown(bodyMd),
+          ...coverFor(bodyMd),
           source: 'telegram',
           status: 'published',
           tgMessageId: msg.message_id,
@@ -244,6 +248,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
           title,
           bodyMd,
           bodyHtml: renderMarkdown(bodyMd),
+          ...coverFor(bodyMd),
           source: 'telegram',
           status: 'published',
           tgMessageId: origin.message_id!,
@@ -277,6 +282,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
           title,
           bodyMd,
           bodyHtml: renderMarkdown(bodyMd),
+          ...coverFor(bodyMd),
           updatedAt: new Date((edited.edit_date ?? edited.date) * 1000).toISOString(),
         })
         .where(eq(schema.posts.id, post.id))

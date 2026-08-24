@@ -4,6 +4,7 @@ import { setSetting } from '../settings';
 import { syncGithub } from './github';
 import { syncTelegram } from './telegram';
 import { runBackup } from '../backup';
+import { backfillPostCovers } from '../images';
 
 let running = false;
 
@@ -55,4 +56,10 @@ export function startScheduler(): void {
 
   // Первичный синк — в фоне, не блокируя старт сервера.
   setTimeout(() => void runSync(), 3_000);
+
+  // Обложки для постов, которые появились до этой фичи, и потерянные миниатюры.
+  // Разовый проход в фоне: на заполненной базе это только регэксп и stat по посту.
+  setTimeout(() => {
+    backfillPostCovers().catch((e) => console.error('[images] backfill обложек не удался:', e));
+  }, 8_000);
 }

@@ -6,6 +6,11 @@ export function absoluteUrl(path: string, lang: Lang): string {
   return localeUrl(path, lang, config.siteUrl);
 }
 
+/** Абсолютный URL картинки: og:image и JSON-LD относительных путей не понимают. */
+export function absoluteAsset(url: string): string {
+  return url.startsWith('http') ? url : `${config.siteUrl.replace(/\/$/, '')}${url}`;
+}
+
 export interface AlternateLink {
   hreflang: string;
   href: string;
@@ -77,7 +82,7 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[], lang: 
 }
 
 export function blogPostingJsonLd(
-  post: { title: string; excerpt: string; createdAt: string; updatedAt: string; path: string },
+  post: { title: string; excerpt: string; createdAt: string; updatedAt: string; path: string; image?: string },
   lang: Lang,
 ): JsonLdNode {
   return {
@@ -85,6 +90,7 @@ export function blogPostingJsonLd(
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.excerpt,
+    ...(post.image ? { image: absoluteAsset(post.image) } : {}),
     inLanguage: lang,
     datePublished: post.createdAt,
     dateModified: post.updatedAt || post.createdAt,

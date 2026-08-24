@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { IMAGE_MIME, uploadsDir } from '../../../lib/uploads';
+import { makeThumb } from '../../../lib/images';
 
 const MAX_SIZE = 8 * 1024 * 1024;
 
@@ -26,6 +27,10 @@ export const POST: APIRoute = async ({ request }) => {
   const name = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
   fs.writeFileSync(path.join(dir, name), Buffer.from(await file.arrayBuffer()));
 
+  // Миниатюру делаем сразу: один ресайз при загрузке вместо оригинала на 8 МБ
+  // в каждой карточке списка. Не получилось — карточка покажет оригинал.
+  const thumb = await makeThumb(name);
+
   const url = `/media/post/${name}`;
-  return Response.json({ ok: true, url, markdown: `![](${url})` });
+  return Response.json({ ok: true, url, thumb, markdown: `![](${url})` });
 };

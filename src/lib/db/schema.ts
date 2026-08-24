@@ -71,6 +71,10 @@ export const posts = sqliteTable('posts', {
   /** published | draft */
   status: text('status').notNull().default('published'),
   tgMessageId: integer('tg_message_id'),
+  /** Первая картинка поста (/media/post/…) — обложка карточки и og:image; '' — картинок нет */
+  coverUrl: text('cover_url').notNull().default(''),
+  /** WebP-миниатюра обложки; '' — не сделана, в карточке тогда оригинал */
+  coverThumb: text('cover_thumb').notNull().default(''),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
