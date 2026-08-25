@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+
   interface RepoRow {
     id: number;
     name: string;
@@ -329,32 +331,114 @@
     }
   }
 
-  // Вставка загруженной картинки в markdown поста (в позицию курсора)
+  // Картинки публикации: диалог выбора файла, Ctrl+V из буфера и перетаскивание в текст
   let postBodyEl = $state<HTMLTextAreaElement | null>(null);
   let postImageInput = $state<HTMLInputElement | null>(null);
   let uploadingImage = $state(false);
+  let dropActive = $state(false);
+
+  /** Тот же белый список, что и на сервере (src/lib/uploads.ts) — отказ виден сразу, без запроса. */
+  const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+  /**
+   * Файлы из буфера обмена или из перетаскивания. Скриншот почти везде приходит
+   * в .files, но у части браузеров он лежит только в .items — читаем оба места.
+   * Тип не фильтруем: про неподдерживаемый файл лучше сказать, чем молча его
+   * проглотить (этим занимается addPostImages).
+   */
+  function filesFrom(data: DataTransfer | null): File[] {
+    if (!data) return [];
+    if (data.files.length > 0) return [...data.files];
+    return [...data.items]
+      .filter((i) => i.kind === 'file')
+      .map((i) => i.getAsFile())
+      .filter((f): f is File => !!f);
+  }
+
+  async function uploadPostFile(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/admin/api/post-image', { method: 'POST', body: fd });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || data.ok === false) throw new Error(String(data.error ?? `HTTP ${res.status}`));
+    return String(data.markdown);
+  }
+
+  /** Markdown-ссылки на картинки — в позицию курсора, каждая с новой строки. */
+  async function insertInBody(snippets: string[]) {
+    const el = postBodyEl;
+    const from = el?.selectionStart ?? postBody.length;
+    const to = el?.selectionEnd ?? from;
+    const before = postBody.slice(0, from);
+    const after = postBody.slice(to);
+    const block = (before && !before.endsWith('\n') ? '\n' : '') + snippets.join('\n') + '\n';
+    postBody = before + block + after;
+    // Курсор — сразу за вставленным блоком, чтобы можно было продолжить печатать
+    await tick();
+    const caret = before.length + block.length;
+    el?.focus();
+    el?.setSelectionRange(caret, caret);
+  }
+
+  async function addPostImages(files: File[]) {
+    const images = files.filter((f) => IMAGE_TYPES.includes(f.type));
+    if (images.length === 0) {
+      if (files.length > 0) say('Поддерживаются PNG, JPEG и WebP');
+      return;
+    }
+    uploadingImage = true;
+    const snippets: string[] = [];
+    let failed = '';
+    try {
+      // По одной: сервер на каждую картинку ещё и делает миниатюру, параллель
+      // на 512 МБ памяти ничего не ускорит.
+      for (const file of images) snippets.push(await uploadPostFile(file));
+    } catch (err) {
+      failed = err instanceof Error ? err.message : String(err);
+    }
+    // Уже загруженное вставляем в любом случае — иначе ошибка на третьем файле
+    // потеряла бы первые два.
+    if (snippets.length > 0) await insertInBody(snippets);
+    uploadingImage = false;
+    if (failed) say(`Ошибка загрузки: ${failed}`);
+    else if (snippets.length === 1) say('Картинка добавлена в текст');
+    else say(`Картинок добавлено: ${snippets.length}`);
+  }
 
   async function uploadPostImage(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    uploadingImage = true;
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/admin/api/post-image', { method: 'POST', body: fd });
-      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      if (!res.ok || data.ok === false) throw new Error(String(data.error ?? `HTTP ${res.status}`));
-      const snippet = String(data.markdown);
-      const pos = postBodyEl?.selectionStart ?? postBody.length;
-      postBody = postBody.slice(0, pos) + `\n${snippet}\n` + postBody.slice(pos);
-      say('Картинка добавлена в текст');
-    } catch (err) {
-      say(`Ошибка загрузки: ${err}`);
-    } finally {
-      uploadingImage = false;
-      input.value = '';
-    }
+    const files = [...(input.files ?? [])];
+    input.value = ''; // тот же файл можно выбрать снова
+    await addPostImages(files);
+  }
+
+  function pastePostImage(e: ClipboardEvent) {
+    const files = filesFrom(e.clipboardData);
+    if (files.length === 0) return; // обычный текст вставляется как всегда
+    e.preventDefault();
+    void addPostImages(files);
+  }
+
+  function dragOverBody(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes('Files')) return; // перетащили текст — отдаём браузеру
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    dropActive = true;
+  }
+
+  function dragLeaveBody(e: DragEvent) {
+    // dragleave стреляет и при переходе на вложенный элемент — гасим подсветку,
+    // только когда курсор ушёл за пределы зоны
+    const to = e.relatedTarget as Node | null;
+    if (to && (e.currentTarget as HTMLElement).contains(to)) return;
+    dropActive = false;
+  }
+
+  function dropOnBody(e: DragEvent) {
+    if (!e.dataTransfer?.types.includes('Files')) return;
+    e.preventDefault();
+    dropActive = false;
+    void addPostImages(filesFrom(e.dataTransfer));
   }
 
   // Диагностика Telegram-бота
@@ -737,12 +821,36 @@
     <div class="panel">
       <h2>{editingId !== null ? `Редактирование #${editingId}` : 'Новая публикация · Markdown'}</h2>
       <input class="post-title" bind:value={postTitle} placeholder="Заголовок" />
-      <textarea class="post-body" rows="9" bind:value={postBody} bind:this={postBodyEl} placeholder="## Что нового…"
-      ></textarea>
+      <!-- Зона перетаскивания вокруг textarea: drop на самом поле браузер обработал бы
+           по-своему (открыл бы файл), поэтому событие гасим на обёртке. -->
+      <div
+        class="drop-zone"
+        class:drag={dropActive}
+        ondragenter={dragOverBody}
+        ondragover={dragOverBody}
+        ondragleave={dragLeaveBody}
+        ondrop={dropOnBody}
+      >
+        <textarea
+          class="post-body"
+          rows="9"
+          bind:value={postBody}
+          bind:this={postBodyEl}
+          onpaste={pastePostImage}
+          placeholder="## Что нового…"
+        ></textarea>
+        {#if dropActive}
+          <div class="drop-overlay">🖼 Отпустите — картинка встанет в текст</div>
+        {:else if uploadingImage}
+          <!-- Не оверлей: пока картинка грузится, текст должно быть видно и можно дописывать -->
+          <div class="drop-busy">Загрузка…</div>
+        {/if}
+      </div>
       <div class="image-row">
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
+          multiple
           bind:this={postImageInput}
           onchange={uploadPostImage}
           hidden
@@ -750,7 +858,10 @@
         <button class="btn btn-sm" onclick={() => postImageInput?.click()} disabled={uploadingImage}>
           {uploadingImage ? 'Загрузка…' : '🖼 Прикрепить фото'}
         </button>
-        <span class="hint small">…или вставьте в текст markdown-ссылку: ![](https://…)</span>
+        <span class="hint small">
+          …или вставьте скриншот из буфера (Ctrl/⌘+V), перетащите файлы в поле, либо напишите
+          markdown-ссылку: ![](https://…)
+        </span>
       </div>
       {#if editingId === null}
         <label class="tg-check">
@@ -1532,6 +1643,45 @@
     font-family: ui-monospace, Menlo, monospace;
     font-size: 13px;
     line-height: 1.6;
+    display: block;
+  }
+  .drop-zone {
+    position: relative;
+    border-radius: 16px;
+  }
+  .drop-zone.drag .post-body {
+    border-color: rgba(157, 183, 255, 0.7);
+  }
+  /* Подсказка поверх поля: клики и само перетаскивание она перехватывать не должна,
+     иначе dragleave сработает сразу после появления и подсветка замигает. */
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px;
+    border-radius: 16px;
+    background: var(--card-overlay);
+    border: 1px dashed rgba(157, 183, 255, 0.7);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg);
+    pointer-events: none;
+  }
+  .drop-busy {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    padding: 5px 12px;
+    border-radius: 12px;
+    background: var(--glass-10);
+    border: 1px solid var(--line-15);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg-60);
+    pointer-events: none;
   }
   .tg-check {
     display: flex;
