@@ -1,8 +1,7 @@
 import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
-import { renderMarkdown } from '../../../../lib/markdown';
-import { coverFor } from '../../../../lib/images';
+import { postContentFields } from '../../../../lib/posts';
 import { editPostInTelegram } from '../../../../lib/telegram';
 import { autoTranslateOnPublish, dropTranslations } from '../../../../lib/translate';
 import { translatePostAfterPublish } from '../../../../lib/translate/content';
@@ -21,10 +20,8 @@ export const PUT: APIRoute = async ({ params, request }) => {
   const set: Partial<typeof schema.posts.$inferInsert> = { updatedAt: new Date().toISOString() };
   if (typeof body.title === 'string' && body.title.trim()) set.title = body.title.trim();
   if (typeof body.bodyMd === 'string') {
-    set.bodyMd = body.bodyMd;
-    set.bodyHtml = renderMarkdown(body.bodyMd);
-    // Картинку могли добавить, убрать или поменять местами — обложку пересчитываем
-    Object.assign(set, coverFor(body.bodyMd));
+    // HTML, обложка, превью и хеш тела считаются здесь, а не при показе списка
+    Object.assign(set, postContentFields(body.bodyMd));
   }
   if (body.status === 'draft' || body.status === 'published') set.status = body.status;
   db.update(schema.posts).set(set).where(eq(schema.posts.id, id)).run();

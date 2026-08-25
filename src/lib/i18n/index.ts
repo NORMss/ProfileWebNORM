@@ -14,6 +14,8 @@ export const DEFAULT_LANG: Lang = 'ru';
 export const LANG_COOKIE = 'lang';
 /** ?hl=en — переключение языка ссылкой (работает без JS: middleware ставит куки и редиректит). */
 export const LANG_QUERY = 'hl';
+/** Подсказка о другой языковой версии закрыта посетителем — больше не показываем. */
+export const LANG_HINT_COOKIE = 'lang_hint';
 export const LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export function isLang(value: string): value is Lang {
@@ -50,6 +52,9 @@ export function localeUrl(path: string, lang: Lang, siteUrl: string): string {
 /**
  * Язык из заголовка Accept-Language: русский — только если он реально
  * в списке предпочтений посетителя, во всех остальных случаях английский.
+ *
+ * Это подсказка, а не решение: по ней страница предлагает другую языковую
+ * версию ссылкой, но никуда не перебрасывает (см. src/middleware.ts).
  */
 export function langFromAcceptLanguage(header: string | null | undefined): Lang {
   if (!header) return DEFAULT_LANG;
@@ -72,17 +77,6 @@ export function langFromAcceptLanguage(header: string | null | undefined): Lang 
     return 'en';
   }
   return DEFAULT_LANG;
-}
-
-const CRAWLER_RE =
-  /(googlebot|google-inspectiontool|bingbot|yandex(bot|images)|duckduckbot|baiduspider|applebot|slurp|facebookexternalhit|twitterbot|telegrambot|whatsapp|linkedinbot|petalbot|ahrefsbot|semrushbot|mj12bot|dotbot|seznambot|gptbot|claudebot|claude-web|oai-searchbot|chatgpt-user|perplexitybot|bytespider|crawler|spider)/i;
-
-/**
- * Поисковых роботов по Accept-Language не редиректим: бот должен получить
- * ровно ту версию, которую запросил, иначе русская главная не попадёт в индекс.
- */
-export function isCrawler(userAgent: string | null | undefined): boolean {
-  return !!userAgent && CRAWLER_RE.test(userAgent);
 }
 
 /** Пути, которые не участвуют в языковом редиректе (статика, медиа, API, фиды). */

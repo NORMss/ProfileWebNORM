@@ -1,8 +1,7 @@
 import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../../../../lib/db';
-import { renderMarkdown } from '../../../../lib/markdown';
-import { coverFor } from '../../../../lib/images';
+import { postContentFields } from '../../../../lib/posts';
 import { sendPostToTelegram } from '../../../../lib/telegram';
 import { autoTranslateOnPublish } from '../../../../lib/translate';
 import { translatePostAfterPublish } from '../../../../lib/translate/content';
@@ -24,9 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
     .insert(schema.posts)
     .values({
       title,
-      bodyMd,
-      bodyHtml: renderMarkdown(bodyMd),
-      ...coverFor(bodyMd),
+      ...postContentFields(bodyMd),
       source: 'admin',
       status,
       createdAt: now,

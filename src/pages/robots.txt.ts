@@ -14,9 +14,14 @@ export const GET: APIRoute = async ({ request }) => {
       ? 'User-agent: *\nDisallow: /\n'
       : `User-agent: *
 Allow: /
+Allow: /api/agent/
 Disallow: /admin
 Disallow: /api/
 Disallow: /*?hl=
+
+# Обзор сайта для языковых моделей и машинные данные для агентов
+# ${site}/llms.txt
+# ${site}/api/agent/site.json
 
 Sitemap: ${site}/sitemap.xml
 `;

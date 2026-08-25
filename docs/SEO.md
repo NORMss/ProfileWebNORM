@@ -13,10 +13,52 @@
 | `Vary: Accept-Language, Cookie` | HTML-ответы | кеши не подменяют язык страницы |
 | RSS | `/rss.xml` и `/en/rss.xml` | ленты на обоих языках |
 | IndexNow | `/<ключ>.txt` + пинг при публикации | Bing и Яндекс узнают о новом посте за секунды |
+| `ItemList` в JSON-LD | `/projects` | все проекты видны поисковику, даже те, что в разметке дорисовываются при прокрутке |
+| `llms.txt` | `/llms.txt` | обзор сайта для языковых моделей: профиль, проекты, публикации, адреса машинных данных |
+| WebMCP + `/api/agent/*.json` | все страницы / отдельные адреса | ИИ-агенты берут данные вызовом инструмента, а не разбором вёрстки — см. ниже |
 
-Автоопределение языка не мешает индексации: если запрос пришёл от робота
-(Googlebot, YandexBot, Bingbot и т. д.), редиректа по `Accept-Language` не
-происходит — бот получает ровно ту версию, которую запросил.
+Язык браузера страницу не подменяет. Google прямо рекомендует не редиректить
+автоматически по `Accept-Language`: такой редирект мешает и посетителю, и роботу
+увидеть остальные версии. Вместо него страница показывает полосу со ссылкой на
+другую версию (`src/components/LangHint.astro`), а редирект остаётся только там,
+где язык выбрал сам посетитель — по `?hl=` и по запомненной этим выбором куке.
+
+Полоса появляется, только когда в запросе есть `Accept-Language` и он просит не
+тот язык, что открыт. Роботы этот заголовок обычно не шлют, поэтому в индекс
+попадает страница без неё — и определять робота по `User-Agent` для этого не
+нужно (раньше для редиректа это требовалось).
+
+## Данные для ИИ-агентов
+
+Поисковый робот читает HTML, а агент — данные. Чтобы второму не приходилось
+угадывать структуру страницы, сайт отдаёт то же самое в машинном виде.
+
+| Адрес | Что отдаёт |
+| --- | --- |
+| `/llms.txt` | короткий markdown-обзор: кто автор, список проектов и публикаций, ссылки на остальные адреса |
+| `/api/agent/site.json` | профиль, счётчики, последние релизы и указатель на остальные эндпоинты |
+| `/api/agent/projects.json` | список проектов; `?category=all\|hard\|agents`, `?q=`, `?limit=`; `?name=X` — один проект с README, релизами и issues |
+| `/api/agent/publications.json` | окно списка публикаций (`?limit=`, `?offset=`); `?id=N` — текст поста в markdown |
+| `/api/agent/search.json?q=` | поиск сразу по проектам и публикациям |
+
+Любой адрес принимает `?lang=ru\|en`. Переводы берутся только из кеша: запрос
+робота не тратит лимит Translation API. `robots.txt` разрешает `/api/agent/`,
+оставляя остальной `/api/` закрытым.
+
+Поверх этого страницы объявляют инструменты **WebMCP** через
+`navigator.modelContext` (в новых редакциях спецификации — `document.modelContext`):
+`get_site_overview`, `list_projects`, `get_project`, `list_publications`,
+`get_publication`, `search_site` и `show_projects` (последний переключает вкладку
+на самой странице). Реализация — `public/webmcp.js`; он подключается динамическим
+`import()` из `src/layouts/Base.astro` и только если браузер этот API даёт,
+поэтому обычному посетителю не стоит ни одного запроса.
+
+Проверить руками:
+
+```bash
+curl -s https://normno.com/llms.txt | head -30
+curl -s "https://normno.com/api/agent/projects.json?category=agents&lang=en"
+```
 
 ## После смены домена: что сделать руками
 
@@ -55,8 +97,10 @@ curl -s https://normno.com/robots.txt
 curl -s https://normno.com/sitemap.xml | head -20
 curl -sI https://normno.com/ | grep -i vary
 curl -s https://normno.com/ | grep -E 'canonical|hreflang'
-# бот не должен получать редирект по языку
-curl -s -o /dev/null -w '%{http_code}\n' -A 'Googlebot' -H 'Accept-Language: en-US' https://normno.com/
+# редиректа по языку браузера быть не должно — только 200
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept-Language: en-US' https://normno.com/
+# а выбранный язык (кука от ?hl=) уважается — 302 на /en
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Cookie: lang=en' https://normno.com/
 # на админ-хосте индексация закрыта полностью
 curl -s https://admin.normno.com/robots.txt
 ```
@@ -77,3 +121,7 @@ PageSpeed Insights (Core Web Vitals — тоже фактор ранжирова
   плюс отдельный поддомен с `Disallow: /`.
 - Страницы кешируются (`Cache-Control: public, max-age=60`) и не ходят во
   внешние API в момент запроса — быстрый ответ сервера тоже учитывается.
+- Core Web Vitals: публичные страницы не грузят ни одного внешнего файла JS
+  и CSS, LCP-картинка объявлена через `preload`/`fetchpriority`, места под
+  все изображения зарезервированы (CLS = 0). Подробности и что осталось —
+  [PERFORMANCE.md](PERFORMANCE.md).

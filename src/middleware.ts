@@ -6,8 +6,8 @@ import {
   DEFAULT_LANG,
   LANG_COOKIE,
   LANG_COOKIE_MAX_AGE,
+  LANG_HINT_COOKIE,
   LANG_QUERY,
-  isCrawler,
   isLang,
   isNonPageRequest,
   langFromAcceptLanguage,
@@ -27,6 +27,13 @@ startScheduler();
  *
  * Плюс языковой роутинг публичной части: /en/* — английская версия, всё
  * остальное русская. Подробности в src/lib/i18n/index.ts.
+ *
+ * Язык браузера страницу не подменяет: по рекомендации Google сайт не
+ * редиректит автоматически по Accept-Language (такой редирект мешает и
+ * посетителю, и роботу увидеть остальные версии, и стоит лишнего похода на
+ * сервер перед первой отрисовкой). Вместо этого страница показывает ссылку
+ * на другую версию — см. src/components/LangHint.astro. Редирект остаётся
+ * только там, где язык выбрал сам посетитель: ?hl= и запомненная им кука.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   const host = (context.request.headers.get('host') ?? '').split(':')[0].toLowerCase();
@@ -97,21 +104,28 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect(`${localePath(cleanPath, target)}${rest ? `?${rest}` : ''}`, 302);
   }
 
-  // Автоопределение языка — только для «чистых» русских URL и живых посетителей:
-  // роботам отдаём ровно запрошенную версию, иначе русская главная не попадёт в индекс.
-  if (pathLang === DEFAULT_LANG && !isNonPageRequest(cleanPath)) {
-    const cookieLang = context.cookies.get(LANG_COOKIE)?.value ?? '';
-    const preferred = isLang(cookieLang)
-      ? cookieLang
-      : langFromAcceptLanguage(context.request.headers.get('accept-language'));
-    const bot = isCrawler(context.request.headers.get('user-agent'));
-    if (!bot && preferred !== DEFAULT_LANG) {
-      return context.redirect(`${localePath(cleanPath, preferred)}${context.url.search}`, 302);
-    }
+  const cookieRaw = context.cookies.get(LANG_COOKIE)?.value ?? '';
+  const chosenLang = isLang(cookieRaw) ? cookieRaw : null;
+  const isPage = !isNonPageRequest(cleanPath);
+
+  // Выбранный ранее язык уважаем: посетитель нажал переключатель, и по «чистому»
+  // адресу его возвращаем в ту же версию. Это его решение, а не догадка по заголовку.
+  if (isPage && pathLang === DEFAULT_LANG && chosenLang && chosenLang !== DEFAULT_LANG) {
+    return context.redirect(`${localePath(cleanPath, chosenLang)}${context.url.search}`, 302);
   }
+
+  // Заголовок Accept-Language только подсказывает, что предложить ссылкой.
+  // Пустого заголовка достаточно, чтобы промолчать: так поисковые роботы,
+  // которые его обычно не шлют, получают страницу без баннера — и никакого
+  // определения робота по User-Agent для этого не нужно.
+  const acceptLanguage = context.request.headers.get('accept-language');
+  const dismissed = context.cookies.get(LANG_HINT_COOKIE)?.value === '0';
+  const preferred = acceptLanguage ? langFromAcceptLanguage(acceptLanguage) : null;
 
   context.locals.lang = pathLang;
   context.locals.path = cleanPath;
+  context.locals.suggestLang =
+    isPage && !chosenLang && !dismissed && preferred && preferred !== pathLang ? preferred : null;
 
   const response =
     pathLang === DEFAULT_LANG ? await next() : await next(new URL(`${cleanPath}${context.url.search}`, context.url));

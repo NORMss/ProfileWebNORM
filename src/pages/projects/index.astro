@@ -1,26 +1,87 @@
 ---
 import Base from '../../layouts/Base.astro';
 import {
-  getVisibleRepos,
   getLatestReleaseDates,
+  getVisibleRepoCards,
   normalizeProjectsSort,
   repoImage,
   sortRepos,
 } from '../../lib/queries';
+import { projectCardHtml, type ProjectItem } from '../../lib/cards';
 import { getSetting } from '../../lib/settings';
 import { formatCount } from '../../lib/format';
 import { localePath } from '../../lib/i18n';
 import { t } from '../../lib/i18n/dict';
 import { localizeRepoDescriptions } from '../../lib/translate/content';
-import { breadcrumbJsonLd } from '../../lib/seo';
+import { absoluteUrl, breadcrumbJsonLd, imageOrigins } from '../../lib/seo';
+
+/** Сколько карточек уезжает в HTML сразу; остальные дорисовываются при прокрутке. */
+const PAGE_SIZE = 9;
 
 const lang = Astro.locals.lang;
+// ?all=1 — вся сетка сразу, без дорисовки: для браузеров без JS (ссылка в <noscript>)
+const showAll = Astro.url.searchParams.get('all') === '1';
 const releaseDates = getLatestReleaseDates();
 const defaultSort = normalizeProjectsSort(getSetting('projects_sort'));
-const hard = sortRepos(getVisibleRepos('hard'), defaultSort, releaseDates);
-const vibe = sortRepos(getVisibleRepos('vibe'), defaultSort, releaseDates);
+// Карточки читаются без README — иначе на список приезжали бы все readme_html разом
+const repos = sortRepos(getVisibleRepoCards(), defaultSort, releaseDates);
 // Описания короткие — переводим весь список одной пачкой и кешируем
-const descriptions = await localizeRepoDescriptions([...hard, ...vibe], lang);
+const descriptions = await localizeRepoDescriptions(repos, lang);
+
+/**
+ * Вкладки публичного сайта: «Все» (по умолчанию), Hard и Agents.
+ * В базе категория осталась прежней — hard | vibe: админка и синк не меняются,
+ * меняется только то, как проекты подписаны и сгруппированы для посетителя.
+ */
+const TABS = [
+  { id: 'all', label: t(lang, 'projects.tabAll') },
+  { id: 'hard', label: t(lang, 'projects.tabHard') },
+  { id: 'agents', label: t(lang, 'projects.tabAgents') },
+];
+
+const items: ProjectItem[] = repos.map((p) => {
+  const description = descriptions.get(p.id) ?? p.description;
+  return {
+    h: localePath(`/projects/${p.name}`, lang),
+    n: p.name,
+    d: description,
+    i: repoImage(p),
+    s: formatCount(p.stars, lang),
+    w: formatCount(p.totalDownloads, lang),
+    c: p.category,
+    q: `${p.name} ${p.description} ${description}`.toLowerCase(),
+    ss: p.stars,
+    sw: p.totalDownloads,
+    sr: releaseDates.get(p.id) || p.pushedAt,
+  };
+});
+
+const firstHtml = items
+  .slice(0, showAll ? items.length : PAGE_SIZE)
+  .map((it, i) =>
+    projectCardHtml({
+      href: it.h,
+      name: it.n,
+      description: it.d,
+      image: it.i,
+      alt: t(lang, 'projects.screenshotAlt', { name: it.n }),
+      stars: it.s,
+      downloads: it.w,
+      eager: i === 0,
+    }),
+  )
+  .join('');
+
+// `<` экранируем: в описании проекта может встретиться «</script>» и закрыть тег
+const payload = JSON.stringify({
+  items,
+  size: PAGE_SIZE,
+  altTpl: t(lang, 'projects.screenshotAlt'),
+}).replace(/</g, '\\u003c');
+
+// Обложки проектов по умолчанию приходят с opengraph.githubassets.com
+const preconnect = imageOrigins(items.slice(0, 4).map((it) => it.i));
+const firstImage = items[0]?.i;
 
 const sortOptions = [
   { value: 'released', label: t(lang, 'projects.sortReleased') },
@@ -36,6 +97,21 @@ const jsonLd = [
     ],
     lang,
   ),
+  // Список проектов целиком: поисковикам и ИИ-агентам видны все позиции,
+  // включая те, что в разметке дорисовываются только при прокрутке.
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: t(lang, 'projects.heading'),
+    numberOfItems: repos.length,
+    itemListElement: repos.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: p.name,
+      description: descriptions.get(p.id) ?? p.description,
+      url: absoluteUrl(`/projects/${p.name}`, lang),
+    })),
+  },
 ];
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
@@ -47,17 +123,28 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
   active="projects"
   jsonLd={jsonLd}
   machineTranslated={lang !== 'ru'}
+  preconnect={preconnect}
+  preloadImage={firstImage}
 >
   <main>
     <div class="head">
       <h1>{t(lang, 'projects.heading')}</h1>
-      <div class="tabs glass" role="tablist">
-        <button id="tab-hard" class="tab active" role="tab" aria-selected="true" aria-controls="grid-hard" data-ripple>
-          {t(lang, 'projects.tabHard')}
-        </button>
-        <button id="tab-vibe" class="tab" role="tab" aria-selected="false" aria-controls="grid-vibe" data-ripple>
-          {t(lang, 'projects.tabVibe')}
-        </button>
+      <div class="tabs glass" role="tablist" aria-label={t(lang, 'projects.heading')}>
+        {
+          TABS.map((tab, i) => (
+            <button
+              class:list={['tab', { active: i === 0 }]}
+              role="tab"
+              type="button"
+              aria-selected={i === 0 ? 'true' : 'false'}
+              aria-controls="project-grid"
+              data-tab={tab.id}
+              data-ripple
+            >
+              {tab.label}
+            </button>
+          ))
+        }
       </div>
     </div>
 
@@ -75,93 +162,152 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
       </select>
     </div>
 
+    <div id="project-grid" role="tabpanel" set:html={firstHtml} />
+    <p class="empty" id="project-empty" hidden>{t(lang, 'projects.noResults')}</p>
+    {repos.length === 0 && <p class="empty">{t(lang, 'projects.emptyCategory')}</p>}
+    <div id="project-more" class="more" hidden><span class="spinner" aria-hidden="true"></span></div>
     {
-      [
-        { id: 'hard', list: hard, hidden: false },
-        { id: 'vibe', list: vibe, hidden: true },
-      ].map(({ id, list, hidden }) => (
-        <div class="grid" id={`grid-${id}`} role="tabpanel" hidden={hidden}>
-          {list.length === 0 && <p class="empty">{t(lang, 'projects.emptyCategory')}</p>}
-          {list.map((p) => (
-            <a
-              class="card"
-              href={localePath(`/projects/${p.name}`, lang)}
-              data-search={`${p.name} ${p.description} ${descriptions.get(p.id) ?? ''}`.toLowerCase()}
-              data-stars={p.stars}
-              data-downloads={p.totalDownloads}
-              data-released={releaseDates.get(p.id) || p.pushedAt}
-              data-ripple
-            >
-              <img class="shot" src={repoImage(p)} alt={t(lang, 'projects.screenshotAlt', { name: p.name })} loading="lazy" />
-              <div class="card-info glass">
-                <div class="card-top">
-                  <strong>{p.name}</strong>
-                  <span class="card-stats">
-                    <span>★ {formatCount(p.stars, lang)}</span>
-                    <span>↓ {formatCount(p.totalDownloads, lang)}</span>
-                  </span>
-                </div>
-                <div class="card-desc">{descriptions.get(p.id) ?? p.description}</div>
-              </div>
+      !showAll && items.length > PAGE_SIZE && (
+        <noscript>
+          <p class="more">
+            <a class="btn-ghost" href="?all=1">
+              {t(lang, 'projects.showAll')}
             </a>
-          ))}
-          <p class="empty no-results" hidden>
-            {t(lang, 'projects.noResults')}
           </p>
-        </div>
-      ))
+        </noscript>
+      )
     }
+
+    {/* Данные всех проектов: по ним работают вкладки, поиск, сортировка
+        и дорисовка карточек при прокрутке — без единого запроса к серверу. */}
+    <script id="project-data" type="application/json" is:inline set:html={payload} />
   </main>
 </Base>
 
 <script>
-  // Вкладки Hard/Vibe + сортировка и поиск — всё на клиенте, списки уже в HTML.
-  const tabs = [
-    { btn: document.getElementById('tab-hard')!, panel: document.getElementById('grid-hard')! },
-    { btn: document.getElementById('tab-vibe')!, panel: document.getElementById('grid-vibe')! },
-  ];
-  for (const { btn } of tabs) {
-    btn.addEventListener('click', () => {
-      for (const t of tabs) {
-        const on = t.btn === btn;
-        t.btn.classList.toggle('active', on);
-        t.btn.setAttribute('aria-selected', String(on));
-        t.panel.hidden = !on;
-      }
-    });
+  import { projectCardHtml, type ProjectItem } from '../../lib/cards';
+
+  /**
+   * Список проектов на клиенте: вкладки «Все / Hard / Agents», поиск,
+   * сортировка и дорисовка карточек пачками при прокрутке. Первая пачка
+   * приезжает готовым HTML с сервера — страница нарисована ещё до загрузки
+   * этого скрипта, а он перерисовывает сетку только когда её меняют.
+   */
+  interface Payload {
+    items: ProjectItem[];
+    size: number;
+    altTpl: string;
   }
-  if (location.hash === '#vibe') tabs[1].btn.click();
 
-  const search = document.getElementById('project-search') as HTMLInputElement;
-  const sortSel = document.getElementById('project-sort') as HTMLSelectElement;
+  const dataEl = document.getElementById('project-data');
+  const grid = document.getElementById('project-grid');
+  const more = document.getElementById('project-more');
+  const emptyEl = document.getElementById('project-empty');
+  const search = document.getElementById('project-search') as HTMLInputElement | null;
+  const sortSel = document.getElementById('project-sort') as HTMLSelectElement | null;
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-tab]')];
 
-  function apply() {
-    const q = search.value.trim().toLowerCase();
-    const sort = sortSel.value;
-    for (const { panel } of tabs) {
-      const cards = [...panel.querySelectorAll<HTMLElement>('.card')];
-      cards.sort((a, b) => {
-        if (sort === 'downloads') return Number(b.dataset.downloads) - Number(a.dataset.downloads);
-        if (sort === 'stars') return Number(b.dataset.stars) - Number(a.dataset.stars);
-        return (b.dataset.released ?? '').localeCompare(a.dataset.released ?? '');
+  if (dataEl && grid && more && search && sortSel) {
+    const payload = JSON.parse(dataEl.textContent || '{}') as Payload;
+    const items = payload.items ?? [];
+    const size = payload.size || 9;
+    const alt = (name: string) => (payload.altTpl ?? '').replace('{name}', name);
+
+    /** id вкладки → категория в базе. «vibe» показывается как Agents. */
+    const MATCH: Record<string, (c: string) => boolean> = {
+      all: () => true,
+      hard: (c) => c === 'hard',
+      agents: (c) => c === 'vibe',
+    };
+
+    let tab = 'all';
+    let visible = items;
+    // Сколько карточек уже в разметке: при ?all=1 сервер отдал всю сетку
+    let shown = Math.min(grid.querySelectorAll('.card').length || size, items.length);
+
+    const select = (): ProjectItem[] => {
+      const q = search.value.trim().toLowerCase();
+      const matchTab = MATCH[tab] ?? MATCH.all;
+      const list = items.filter((it) => matchTab(it.c) && (!q || it.q.includes(q)));
+      const sort = sortSel.value;
+      return list.sort((a, b) => {
+        if (sort === 'downloads') return b.sw - a.sw;
+        if (sort === 'stars') return b.ss - a.ss;
+        return b.sr.localeCompare(a.sr);
       });
-      let visible = 0;
-      for (const card of cards) {
-        panel.appendChild(card); // переставляем в отсортированном порядке
-        const hit = !q || (card.dataset.search ?? '').includes(q);
-        card.style.display = hit ? '' : 'none';
-        if (hit) visible++;
-      }
-      const noResults = panel.querySelector<HTMLElement>('.no-results');
-      if (noResults) {
-        panel.appendChild(noResults);
-        noResults.hidden = !(q && visible === 0 && cards.length > 0);
-      }
-    }
-  }
+    };
 
-  search.addEventListener('input', apply);
-  sortSel.addEventListener('change', apply);
+    const cardsHtml = (list: ProjectItem[], from: number, to: number) =>
+      list
+        .slice(from, to)
+        .map((it, i) =>
+          projectCardHtml({
+            href: it.h,
+            name: it.n,
+            description: it.d,
+            image: it.i,
+            alt: alt(it.n),
+            stars: it.s,
+            downloads: it.w,
+            eager: from === 0 && i === 0,
+          }),
+        )
+        .join('');
+
+    const syncMore = () => {
+      more.hidden = shown >= visible.length;
+      if (emptyEl) emptyEl.hidden = visible.length > 0 || items.length === 0;
+    };
+
+    /** Полная перерисовка сетки — только по действию пользователя. */
+    const render = () => {
+      visible = select();
+      shown = Math.min(size, visible.length);
+      grid.innerHTML = cardsHtml(visible, 0, shown);
+      syncMore();
+    };
+
+    const appendNext = () => {
+      if (shown >= visible.length) return;
+      const next = Math.min(shown + size, visible.length);
+      grid.insertAdjacentHTML('beforeend', cardsHtml(visible, shown, next));
+      shown = next;
+      syncMore();
+    };
+
+    for (const btn of tabs) {
+      btn.addEventListener('click', () => {
+        tab = btn.dataset.tab ?? 'all';
+        for (const b of tabs) {
+          const on = b === btn;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-selected', String(on));
+        }
+        history.replaceState(null, '', tab === 'all' ? location.pathname : `#${tab}`);
+        render();
+      });
+    }
+
+    let debounce = 0;
+    search.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = window.setTimeout(render, 120);
+    });
+    sortSel.addEventListener('change', render);
+
+    // Вкладка из адреса: #hard, #agents (и старое #vibe — ссылки не ломаем)
+    const fromHash = location.hash.slice(1) === 'vibe' ? 'agents' : location.hash.slice(1);
+    const hashTab = fromHash && fromHash !== 'all' ? tabs.find((b) => b.dataset.tab === fromHash) : null;
+    if (hashTab) hashTab.click();
+    else syncMore();
+
+    new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) appendNext();
+      },
+      { rootMargin: '600px 0px' },
+    ).observe(more);
+  }
 </script>
 
 <style>
@@ -201,7 +347,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     font-size: 14px;
     font-weight: 600;
     white-space: nowrap;
-    padding: 8px clamp(12px, 3.5vw, 20px);
+    padding: 8px clamp(10px, 3vw, 18px);
     border-radius: 17px;
     transition: background 0.3s;
     position: relative;
@@ -227,8 +373,6 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     padding: 11px 18px;
     border-radius: 18px;
     outline: none;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
   }
   .search::placeholder {
     color: var(--fg-45);
@@ -245,28 +389,52 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     border-radius: 18px;
     outline: none;
     cursor: pointer;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
   }
   .sort option {
     color: #1a1a1a;
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
-    gap: 22px;
-  }
-  .grid[hidden] {
-    display: none;
-  }
   .empty {
     margin: 0;
     font-size: 14.5px;
     color: var(--fg-55);
   }
-  .no-results {
-    grid-column: 1 / -1;
+  .more {
+    display: flex;
+    justify-content: center;
+    padding: 26px 0 4px;
+    min-height: 56px;
+  }
+  .more[hidden] {
+    display: none;
+  }
+  .spinner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--line-15);
+    border-top-color: var(--fg-50);
+    animation: projSpin 0.8s linear infinite;
+  }
+  @keyframes projSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+  }
+</style>
+
+<style is:global>
+  /* Карточка проекта: классы глобальные — ту же разметку рисует клиент,
+     когда меняет вкладку, сортировку или дотягивает следующую пачку. */
+  #project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
+    gap: 22px;
   }
   .card {
     position: relative;
@@ -281,6 +449,10 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     transition:
       transform 0.3s,
       box-shadow 0.3s;
+    /* Карточки вне экрана браузер не размечает и не растрирует до прокрутки;
+       contain-intrinsic-size держит правильную длину полосы прокрутки. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
   }
   .card:hover {
     transform: translateY(-4px);
@@ -300,6 +472,8 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     bottom: 10px;
     border-radius: 18px;
     padding: 14px 16px;
+    /* Плашка лежит поверх непрозрачного скриншота — размывать под ней нечего,
+       поэтому backdrop-filter здесь нет: он стоил кадров на каждой карточке. */
     background: var(--card-overlay);
     border: 1px solid var(--line-15);
   }
@@ -330,6 +504,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     color: var(--fg-65);
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

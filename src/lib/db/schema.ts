@@ -75,6 +75,10 @@ export const posts = sqliteTable('posts', {
   coverUrl: text('cover_url').notNull().default(''),
   /** WebP-миниатюра обложки; '' — не сделана, в карточке тогда оригинал */
   coverThumb: text('cover_thumb').notNull().default(''),
+  /** Готовый текст-превью для карточек: считается при сохранении, а не на каждый рендер списка */
+  excerpt: text('excerpt').notNull().default(''),
+  /** sourceHash(body_html) — карточка проверяет наличие перевода тела, не читая само тело */
+  bodyHash: text('body_hash').notNull().default(''),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

@@ -27,6 +27,20 @@ export function alternates(path: string): AlternateLink[] {
   return list;
 }
 
+/** Внешние origin'ы из списка URL картинок — для <link rel="preconnect">. */
+export function imageOrigins(urls: (string | undefined)[]): string[] {
+  const origins = new Set<string>();
+  for (const url of urls) {
+    if (!url || !url.startsWith('http')) continue;
+    try {
+      origins.add(new URL(url).origin);
+    } catch {
+      /* мусор в поле обложки — просто пропускаем */
+    }
+  }
+  return [...origins];
+}
+
 /** og:locale в формате, который ждут соцсети. */
 export function ogLocale(lang: Lang): string {
   return lang === 'ru' ? 'ru_RU' : 'en_US';

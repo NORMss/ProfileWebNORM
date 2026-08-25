@@ -4,10 +4,10 @@ import crypto from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '../db';
 import { config } from '../config';
-import { renderMarkdown } from '../markdown';
 import { getSetting, setSetting } from '../settings';
 import { uploadsDir } from '../uploads';
-import { coverFor, makeThumb } from '../images';
+import { makeThumb } from '../images';
+import { postContentFields } from '../posts';
 import { autoTranslateOnPublish } from '../translate';
 import { translatePostsInBackground } from '../translate/content';
 import { pingIndexNowInBackground } from '../indexnow';
@@ -109,7 +109,7 @@ function appendPhotoToPost(postId: number, photoUrl: string): void {
   if (!post) return;
   const bodyMd = `${post.bodyMd}\n\n![](${photoUrl})`.trim();
   db.update(schema.posts)
-    .set({ bodyMd, bodyHtml: renderMarkdown(bodyMd), ...coverFor(bodyMd) })
+    .set(postContentFields(bodyMd))
     .where(eq(schema.posts.id, postId))
     .run();
 }
@@ -191,9 +191,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         .insert(schema.posts)
         .values({
           title,
-          bodyMd,
-          bodyHtml: renderMarkdown(bodyMd),
-          ...coverFor(bodyMd),
+          ...postContentFields(bodyMd),
           source: 'telegram',
           status: 'published',
           tgMessageId: msg.message_id,
@@ -246,9 +244,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
         .insert(schema.posts)
         .values({
           title,
-          bodyMd,
-          bodyHtml: renderMarkdown(bodyMd),
-          ...coverFor(bodyMd),
+          ...postContentFields(bodyMd),
           source: 'telegram',
           status: 'published',
           tgMessageId: origin.message_id!,
@@ -280,9 +276,7 @@ export async function syncTelegram(): Promise<{ imported: number; updated: numbe
       db.update(schema.posts)
         .set({
           title,
-          bodyMd,
-          bodyHtml: renderMarkdown(bodyMd),
-          ...coverFor(bodyMd),
+          ...postContentFields(bodyMd),
           updatedAt: new Date((edited.edit_date ?? edited.date) * 1000).toISOString(),
         })
         .where(eq(schema.posts.id, post.id))

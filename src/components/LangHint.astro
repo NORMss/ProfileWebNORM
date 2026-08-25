@@ -1,0 +1,135 @@
+---
+import { LANG_HINT_COOKIE, LANG_COOKIE_MAX_AGE, LANG_QUERY, localePath, type Lang } from '../lib/i18n';
+import { t } from '../lib/i18n/dict';
+
+/**
+ * Полоса «эта страница есть и на другом языке».
+ *
+ * Замена автоматическому редиректу по Accept-Language: Google рекомендует не
+ * подменять версию сайта по языку браузера, а давать ссылку — тогда и
+ * посетитель, и робот видят обе версии, а первая загрузка обходится без
+ * лишнего похода на сервер.
+ *
+ * Показывается, только когда middleware поставил locals.suggestLang: браузер
+ * просит не тот язык, что открыт, посетитель ещё не выбирал язык сам и не
+ * закрывал подсказку.
+ */
+interface Props {
+  /** Язык, который предлагаем. */
+  target: Lang;
+  /** Путь без языкового префикса. */
+  path: string;
+}
+
+const { target, path } = Astro.props;
+// ?hl= запоминает выбор в куки — после него подсказка больше не появится
+const href = `${localePath(path, target)}?${LANG_QUERY}=${target}`;
+---
+
+{/* lang на самом баннере: текст здесь на другом языке, и это важно скринридеру */}
+<aside class="lang-hint" id="lang-hint" lang={target} aria-label={t(target, 'lang.hintAria')}>
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"></circle>
+    <path d="M3.2 9.5h17.6M3.2 14.5h17.6"></path>
+    <path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"></path>
+  </svg>
+  <p>{t(target, 'lang.hint')}</p>
+  <a class="hint-go" href={href} hreflang={target} rel="alternate" data-ripple>{t(target, 'lang.current')}</a>
+  <button class="hint-close" type="button" data-hint-close aria-label={t(target, 'lang.hintDismiss')}>
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18"></path>
+    </svg>
+  </button>
+</aside>
+
+<script is:inline define:vars={{ cookieName: LANG_HINT_COOKIE, maxAge: LANG_COOKIE_MAX_AGE }}>
+  // Скрипт живёт внутри баннера: нет баннера — нет и его в разметке.
+  (() => {
+    const hint = document.getElementById('lang-hint');
+    hint?.querySelector('[data-hint-close]')?.addEventListener('click', () => {
+      document.cookie = `${cookieName}=0; path=/; max-age=${maxAge}; samesite=lax`;
+      hint.remove();
+    });
+  })();
+</script>
+
+<style>
+  .lang-hint {
+    position: relative;
+    z-index: 1;
+    max-width: 1060px;
+    margin: 14px auto -6px;
+    padding: 10px 12px 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 20px;
+    background: var(--glass-06);
+    border: 1px solid var(--line-13);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    box-shadow: var(--shadow-md);
+  }
+  .lang-hint > svg {
+    flex: none;
+    color: var(--fg-60);
+  }
+  .lang-hint p {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: var(--text-body);
+  }
+  .hint-go {
+    flex: none;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--fg);
+    padding: 7px 14px;
+    border-radius: 14px;
+    background: var(--glass-10);
+    border: 1px solid var(--line-15);
+    transition: background 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .hint-go:hover {
+    background: var(--active);
+  }
+  .hint-close {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--fg-60);
+    cursor: pointer;
+    transition: background 0.25s;
+  }
+  .hint-close:hover {
+    background: var(--glass-08);
+    color: var(--fg);
+  }
+
+  @media (max-width: 560px) {
+    .lang-hint {
+      margin: 12px 12px -4px;
+      padding: 10px 8px 10px 12px;
+      gap: 8px;
+    }
+    .lang-hint p {
+      font-size: 12.5px;
+    }
+    .hint-go {
+      padding: 7px 11px;
+    }
+  }
+</style>

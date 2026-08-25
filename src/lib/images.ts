@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
@@ -11,6 +12,13 @@ export const POSTS_MEDIA = '/media/post/';
 
 function postsDir(): string {
   return path.join(uploadsDir(), 'posts');
+}
+
+/** Кеш уменьшенных копий чужих картинок — рядом с остальными загрузками. */
+function remoteDir(): string {
+  const dir = path.join(uploadsDir(), 'remote');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 /**
@@ -62,6 +70,135 @@ export async function makeThumb(file: string): Promise<string> {
   } catch (e) {
     console.error(`[images] не удалось сделать миниатюру для ${file}:`, e);
     return '';
+  }
+}
+
+/**
+ * Уменьшенная WebP-копия загруженного файла рядом с оригиналом.
+ *
+ * Аватар и обложки проектов админка кладёт как есть — это могут быть PNG на
+ * несколько мегабайт, а показываются они в кружке 220 px и в карточке ~500 px.
+ * Копия делается один раз (и заново, если оригинал перезалили) и потом только
+ * отдаётся с диска, поэтому запрос за картинкой ничего не пересчитывает.
+ * Возвращает путь к копии или '' — тогда вызывающий отдаёт оригинал.
+ */
+const resizing = new Map<string, Promise<string>>();
+
+export async function resizedWebp(source: string, width: number): Promise<string> {
+  const out = source.replace(/\.[a-z0-9]+$/i, '') + `-${width}.webp`;
+  try {
+    const [src, dst] = await Promise.all([
+      fs.promises.stat(source),
+      fs.promises.stat(out).catch(() => null),
+    ]);
+    if (dst && dst.mtimeMs >= src.mtimeMs) return out;
+  } catch {
+    return '';
+  }
+  // Сразу после загрузки нового файла за копией может прийти несколько
+  // запросов одновременно: делаем её один раз, остальные ждут тот же результат.
+  const inFlight = resizing.get(out);
+  if (inFlight) return inFlight;
+
+  const job = (async () => {
+    const sharp = await loadSharp();
+    if (!sharp) return '';
+    // Пишем во временный файл и переименовываем: rename атомарен, поэтому
+    // параллельный запрос читает либо старую копию целиком, либо новую целиком,
+    // но никогда недописанную — а отдаём мы её с годовым кешем.
+    const tmp = `${out}.${process.pid}.tmp`;
+    try {
+      await sharp
+        .default(source, { limitInputPixels: 50_000_000 })
+        .rotate()
+        .resize({ width, withoutEnlargement: true })
+        .webp({ quality: 78 })
+        .toFile(tmp);
+      await fs.promises.rename(tmp, out);
+      return out;
+    } catch (e) {
+      console.error(`[images] не удалось уменьшить ${source}:`, e);
+      await fs.promises.rm(tmp, { force: true }).catch(() => {});
+      return '';
+    }
+  })();
+
+  resizing.set(out, job);
+  try {
+    return await job;
+  } finally {
+    resizing.delete(out);
+  }
+}
+
+/** Сколько ждём чужой сервер и сколько байт готовы принять от него. */
+const REMOTE_TIMEOUT_MS = 8_000;
+const REMOTE_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Кеш уменьшенных копий чужих картинок.
+ *
+ * Обложка проекта может быть скриншотом из README — это файл на
+ * raw.githubusercontent.com весом под мегабайт, который в карточке показывается
+ * полоской в полсотни пикселей. Забираем его один раз, ужимаем и дальше отдаём
+ * с диска: страница по-прежнему не ходит во внешние API в момент запроса — за
+ * исключением самого первого раза, когда картинку ещё не видели.
+ *
+ * URL сюда приходит из БД (обложка выбирается в админке только из картинок
+ * README этого же репозитория), но схему всё равно проверяем: наружу ходим
+ * только по http и https.
+ */
+export async function cachedRemoteWebp(url: string, key: string, width: number): Promise<string> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return '';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+
+  // Имя кеша зависит и от адреса: сменили обложку — старый файл не подойдёт
+  const stamp = crypto.createHash('sha1').update(url).digest('hex').slice(0, 12);
+  const out = path.join(remoteDir(), `${key}-${stamp}-${width}.webp`);
+  if (await fs.promises.stat(out).then((st) => st.isFile()).catch(() => false)) return out;
+
+  const inFlight = resizing.get(out);
+  if (inFlight) return inFlight;
+
+  const job = (async () => {
+    const sharp = await loadSharp();
+    if (!sharp) return '';
+    const tmp = `${out}.${process.pid}.tmp`;
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(REMOTE_TIMEOUT_MS),
+        headers: { Accept: 'image/*' },
+      });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      if (!(res.headers.get('content-type') ?? '').startsWith('image/')) throw new Error('не картинка');
+      const body = await res.arrayBuffer();
+      if (body.byteLength > REMOTE_MAX_BYTES) throw new Error(`${body.byteLength} байт — слишком много`);
+
+      await sharp
+        .default(Buffer.from(body), { limitInputPixels: 50_000_000 })
+        .rotate()
+        .resize({ width, withoutEnlargement: true })
+        .webp({ quality: 78 })
+        .toFile(tmp);
+      await fs.promises.rename(tmp, out);
+      return out;
+    } catch (e) {
+      console.error(`[images] не удалось забрать обложку ${url}:`, e);
+      await fs.promises.rm(tmp, { force: true }).catch(() => {});
+      return '';
+    }
+  })();
+
+  resizing.set(out, job);
+  try {
+    return await job;
+  } finally {
+    resizing.delete(out);
   }
 }
 

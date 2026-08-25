@@ -45,12 +45,16 @@ const showToggle = claude !== null;
       <span class="sub sub-claude">{t(lang, 'heatmap.claudeCommits', { count: claudeTotalLabel })}</span>
     </h2>
     {
+      /* Не role="tablist": панель здесь одна, кнопки только перекрашивают ту же
+         карту. tablist требует детей с role="tab" и связанных с ними панелей —
+         без них дерево доступности ломается, и это видят и Lighthouse, и агенты.
+         Пара переключателей состояния описывается группой с aria-pressed. */
       showToggle && (
-        <div class="views" role="tablist" aria-label={t(lang, 'heatmap.source')}>
-          <button class="view active" data-view-btn="github" data-ripple>
+        <div class="views" role="group" aria-label={t(lang, 'heatmap.source')}>
+          <button class="view active" type="button" data-view-btn="github" aria-pressed="true" data-ripple>
             GitHub
           </button>
-          <button class="view view-claude" data-view-btn="claude" data-ripple>
+          <button class="view view-claude" type="button" data-view-btn="claude" aria-pressed="false" data-ripple>
             Claude ✨
           </button>
         </div>
@@ -84,7 +88,11 @@ const showToggle = claude !== null;
     for (const btn of buttons) {
       btn.addEventListener('click', () => {
         section.dataset.view = btn.getAttribute('data-view-btn');
-        for (const b of buttons) b.classList.toggle('active', b === btn);
+        for (const b of buttons) {
+          const on = b === btn;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-pressed', String(on));
+        }
       });
     }
   })();
@@ -96,6 +104,10 @@ const showToggle = claude !== null;
     padding: clamp(18px, 4vw, 28px);
     background: var(--glass-05);
     box-shadow: var(--shadow-md);
+    /* Карта — это ~370 ячеек в самом низу страницы: до прокрутки браузер
+       не тратит на их разметку и отрисовку ни кадра. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 220px;
   }
   .head {
     display: flex;
