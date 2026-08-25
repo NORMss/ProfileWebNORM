@@ -15,6 +15,7 @@ import {
   type PostCard,
   type RepoCard,
 } from './queries';
+import { absoluteAsset } from './seo';
 import { getAbout } from './settings';
 
 /**
@@ -69,7 +70,7 @@ export function projectSummary(repo: RepoCard, description: string, lang: Lang):
     updatedAt: repo.pushedAt,
     url: url(`/projects/${repo.name}`, lang),
     repository: repo.htmlUrl,
-    image: repoImage(repo),
+    image: absoluteAsset(repoImage(repo)),
   };
 }
 

@@ -51,7 +51,7 @@ const jsonLd = [personJsonLd(lang, about), webSiteJsonLd(lang)];
 
 // Миниатюры релизов живут на opengraph.githubassets.com, обложка трека — на CDN
 // Spotify: соединение с ними открываем из <head>, не дожидаясь встречи с <img>.
-const preconnect = imageOrigins([...updates.map((u) => repoImage(u.repo)), nowPlaying.track?.coverUrl]);
+const preconnect = imageOrigins([...updates.map((u) => repoImage(u.repo, 'thumb')), nowPlaying.track?.coverUrl]);
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
@@ -114,7 +114,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
           {
             updates.map((u) => (
               <a class="update glass-item" href={localePath(`/projects/${u.repo.name}`, lang)} data-ripple>
-                <img class="thumb" src={repoImage(u.repo)} alt="" width="52" height="52" loading="lazy" />
+                <img class="thumb" src={repoImage(u.repo, 'thumb')} alt="" width="52" height="52" loading="lazy" />
                 <div class="update-meta">
                   <div class="update-title">
                     <strong>{u.repo.name}</strong>

@@ -50,9 +50,27 @@ const POST_CARD_COLUMNS = {
   updatedAt: schema.posts.updatedAt,
 } as const;
 
-/** Обложка проекта: загруженная/заданная вручную или og-image GitHub. */
-export function repoImage(repo: Pick<Repo, 'imageUrl' | 'fullName'>): string {
-  return repo.imageUrl || `https://opengraph.githubassets.com/1/${repo.fullName}`;
+/**
+ * Размеры, в которых показывается обложка проекта. Ширины с запасом на экраны
+ * двойной плотности: карточка в сетке — ~500 CSS-px, миниатюра на главной — 52.
+ */
+export const REPO_IMAGE_WIDTHS = { thumb: 160, card: 1000 } as const;
+export type RepoImageSize = keyof typeof REPO_IMAGE_WIDTHS;
+
+export function normalizeRepoImageSize(raw: string | null | undefined): RepoImageSize {
+  return raw === 'thumb' ? 'thumb' : 'card';
+}
+
+/**
+ * Обложка проекта: загруженная через админку или выбранная из README — через
+ * /media/repo/<id>, который приводит её к нужной ширине и держит копию на диске
+ * (в README лежат скриншоты по мегабайту, а в карточке видно полоску).
+ * Если обложку не задавали, остаётся og-image GitHub: он и так лёгкий, и его
+ * отдаёт CDN — заворачивать его к себе смысла нет.
+ */
+export function repoImage(repo: Pick<Repo, 'id' | 'imageUrl' | 'fullName'>, size: RepoImageSize = 'card'): string {
+  if (!repo.imageUrl) return `https://opengraph.githubassets.com/1/${repo.fullName}`;
+  return `/media/repo/${repo.id}${size === 'card' ? '' : `?size=${size}`}`;
 }
 
 export function getVisibleRepos(category?: 'hard' | 'vibe'): Repo[] {
