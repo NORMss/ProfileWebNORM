@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import LangHint from '../components/LangHint.astro';
 import LangSwitcher from '../components/LangSwitcher.astro';
 import { config } from '../lib/config';
 import { DEFAULT_LANG, localePath, type Lang } from '../lib/i18n';
@@ -34,6 +35,9 @@ interface Props {
 
 const lang: Lang = Astro.locals.lang ?? DEFAULT_LANG;
 const path = Astro.locals.path ?? '/';
+// Язык браузера отличается от открытого, а выбор посетитель ещё не делал —
+// предлагаем другую версию ссылкой (вместо автоматического редиректа).
+const suggestLang = Astro.locals.suggestLang ?? null;
 
 const {
   title,
@@ -146,6 +150,8 @@ const nav = [
           </div>
         )
       }
+
+      {!hideNav && suggestLang && <LangHint target={suggestLang} path={path} />}
 
       <slot />
 

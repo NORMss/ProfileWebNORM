@@ -17,6 +17,9 @@ const RU = {
   'lang.switchLabel': 'English',
   'lang.current': 'Русский',
   'lang.machineNote': 'Страница переведена автоматически',
+  'lang.hint': 'Эта страница есть и на русском.',
+  'lang.hintAria': 'Другая языковая версия страницы',
+  'lang.hintDismiss': 'Скрыть подсказку',
 
   'home.title': 'NORMno — портфолио и проекты на Kotlin Multiplatform',
   'home.description':
@@ -109,6 +112,9 @@ const EN: Record<StringKey, string> = {
   'lang.switchLabel': 'Русский',
   'lang.current': 'English',
   'lang.machineNote': 'This page was machine-translated from Russian',
+  'lang.hint': 'This page is also available in English.',
+  'lang.hintAria': 'This page in another language',
+  'lang.hintDismiss': 'Dismiss',
 
   'home.title': 'NORMno — Kotlin Multiplatform developer portfolio',
   'home.description':
