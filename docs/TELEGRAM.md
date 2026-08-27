@@ -78,7 +78,7 @@ Offset хранится в БД — каждый апдейт обрабатыв
    ```env
    TELEGRAM_BOT_TOKEN=1234567890:AA...
    # username канала (для публичного) или числовой id -100… (для приватного)
-   TELEGRAM_CHANNEL=@normno
+   TELEGRAM_CHANNEL=@yourchannel
    ```
 
 4. **Перезапустите приложение**: `docker compose up -d --build`.
@@ -117,7 +117,7 @@ message_id — плашка «Публикация синхронизирова�
 ## Бэкапы в Telegram
 
 Тот же бот умеет присылать бэкап всех данных сайта (SQLite + загруженные
-картинки) **в личный чат** — архив `normno-backup-<дата>.tar.gz`:
+картинки) **в личный чат** — архив `site-backup-<дата>.tar.gz`:
 
 1. Узнайте свой личный chat_id: напишите боту
    [@userinfobot](https://t.me/userinfobot) — он ответит вашим `Id`.

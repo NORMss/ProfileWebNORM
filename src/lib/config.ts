@@ -9,6 +9,19 @@ export const config = {
   get siteUrl() {
     return env('SITE_URL', 'http://localhost:4321');
   },
+  /**
+   * Хост публичного сайта: SITE_URL без схемы и завершающего слэша.
+   * Нужен там, где домен показывается человеку (заголовки, подпись бэкапа)
+   * — чтобы адрес задавался только в .env и не был вшит в код.
+   */
+  get siteHost() {
+    const raw = env('SITE_URL', 'http://localhost:4321');
+    try {
+      return new URL(raw).host;
+    } catch {
+      return raw.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+  },
   /** Хост, с которого доступна админка (отдельный поддомен). На всех остальных хостах /admin отдаёт 404. */
   get adminHost() {
     return env('ADMIN_HOST', 'admin.localhost');
@@ -46,8 +59,9 @@ export const config = {
   get telegramBackupChatId() {
     return env('TELEGRAM_BACKUP_CHAT_ID');
   },
+  /** Пустой ADMIN_USER в .env — это «не задано», а не логин из пустой строки. */
   get adminUser() {
-    return env('ADMIN_USER', 'admin');
+    return env('ADMIN_USER').trim() || 'admin';
   },
   get adminPass() {
     return env('ADMIN_PASS');

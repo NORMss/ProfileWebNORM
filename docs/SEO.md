@@ -56,8 +56,8 @@
 Проверить руками:
 
 ```bash
-curl -s https://normno.com/llms.txt | head -30
-curl -s "https://normno.com/api/agent/projects.json?category=agents&lang=en"
+curl -s https://example.com/llms.txt | head -30
+curl -s "https://example.com/api/agent/projects.json?category=agents&lang=en"
 ```
 
 ## После смены домена: что сделать руками
@@ -73,14 +73,14 @@ curl -s "https://normno.com/api/agent/projects.json?category=agents&lang=en"
 2. **«Изменение адреса»** (Settings → Change of address) в ресурсе старого
    домена. Это работает, только если старый домен ещё жив и отдаёт 301 на
    новый — то есть его нельзя отпускать сразу.
-3. **Отправить sitemap** нового домена: Sitemaps → `https://normno.com/sitemap.xml`.
+3. **Отправить sitemap** нового домена: Sitemaps → `https://example.com/sitemap.xml`.
 4. **Проверить главные страницы** через URL Inspection → Request indexing:
    главная, `/projects`, `/publications` и пара свежих постов.
 5. **Яндекс.Вебмастер.** Добавить сайт (мета-тег — `YANDEX_VERIFICATION`),
    в разделе «Переезд сайта» указать новый главный домен, отправить sitemap.
 6. **IndexNow.** Сгенерировать ключ (любые 8–128 hex-символов, например
    `openssl rand -hex 16`), положить в `INDEXNOW_KEY`, перезапустить контейнер
-   и открыть `https://normno.com/<ключ>.txt` — там должен лежать сам ключ.
+   и открыть `https://example.com/<ключ>.txt` — там должен лежать сам ключ.
    Дальше каждый новый пост уходит в Bing и Яндекс автоматически.
 7. **Обновить внешние ссылки** на новый домен: профиль GitHub, шапка
    Telegram-канала, описание YouTube, ссылки в README репозиториев. Обратные
@@ -93,16 +93,16 @@ curl -s "https://normno.com/api/agent/projects.json?category=agents&lang=en"
 ## Как проверить, что всё на месте
 
 ```bash
-curl -s https://normno.com/robots.txt
-curl -s https://normno.com/sitemap.xml | head -20
-curl -sI https://normno.com/ | grep -i vary
-curl -s https://normno.com/ | grep -E 'canonical|hreflang'
+curl -s https://example.com/robots.txt
+curl -s https://example.com/sitemap.xml | head -20
+curl -sI https://example.com/ | grep -i vary
+curl -s https://example.com/ | grep -E 'canonical|hreflang'
 # редиректа по языку браузера быть не должно — только 200
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept-Language: en-US' https://normno.com/
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Accept-Language: en-US' https://example.com/
 # а выбранный язык (кука от ?hl=) уважается — 302 на /en
-curl -s -o /dev/null -w '%{http_code}\n' -H 'Cookie: lang=en' https://normno.com/
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Cookie: lang=en' https://example.com/
 # на админ-хосте индексация закрыта полностью
-curl -s https://admin.normno.com/robots.txt
+curl -s https://admin.example.com/robots.txt
 ```
 
 Полезные внешние проверки: Google Rich Results Test (JSON-LD),

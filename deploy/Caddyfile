@@ -1,5 +1,7 @@
-# Публичный сайт: админка сюда не проксируется вовсе (защита в дополнение к 404 в приложении)
-{$SITE_DOMAIN:normno.com} {
+# Публичный сайт: админка сюда не проксируется вовсе (защита в дополнение к 404 в приложении).
+# Домены задаются в .env; значения по умолчанию — служебные .localhost, чтобы при
+# незаполненном .env Caddy подписал их внутренним сертификатом и не ходил в Let's Encrypt.
+{$SITE_DOMAIN:site.localhost} {
 	encode zstd gzip
 
 	@admin path /admin /admin/*
@@ -19,19 +21,19 @@
 }
 
 # Отдельный поддомен для админки (Basic Auth проверяет само приложение)
-{$ADMIN_DOMAIN:admin.normno.com} {
+{$ADMIN_DOMAIN:admin.localhost} {
 	encode zstd gzip
 	reverse_proxy site-app:4321
 }
 
-# Дополнительные домены сайта (через пробел, например «normno.ru www.normno.com»).
+# Дополнительные домены сайта (через пробел, например «example.ru www.example.com»).
 # Caddy выпустит на каждый свой сертификат Let's Encrypt и отдаст 301 на канонический
 # SITE_DOMAIN — так у страниц остаётся один адрес для поиска и ссылок.
 # Значение по умолчанию — служебный .localhost: Caddy подписывает такие имена
 # внутренним сертификатом и в Let's Encrypt не ходит, поэтому пустой
 # ALIAS_DOMAINS ничего не ломает.
 {$ALIAS_DOMAINS:alias.localhost} {
-	redir https://{$SITE_DOMAIN:normno.com}{uri} permanent
+	redir https://{$SITE_DOMAIN:site.localhost}{uri} permanent
 }
 
 # Свои блоки (другие приложения на этом же сервере) — в ./deploy/local/*.caddy.

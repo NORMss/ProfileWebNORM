@@ -21,7 +21,7 @@ export async function runBackup(): Promise<{ sizeBytes: number; fileName: string
   if (!chatId) throw new Error('TELEGRAM_BACKUP_CHAT_ID не задан в .env (личный chat_id, не канал)');
 
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'normno-backup-'));
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-backup-'));
   try {
     // Консистентный снапшот БД (безопасно при WAL и параллельной записи)
     await rawSqlite.backup(path.join(workDir, 'site.db'));
@@ -34,7 +34,7 @@ export async function runBackup(): Promise<{ sizeBytes: number; fileName: string
       tarSources.push('uploads');
     }
 
-    const fileName = `normno-backup-${stamp}.tar.gz`;
+    const fileName = `site-backup-${stamp}.tar.gz`;
     const archivePath = path.join(workDir, fileName);
     await execFileAsync('tar', ['-czf', archivePath, '-C', workDir, ...tarSources]);
 
@@ -45,7 +45,7 @@ export async function runBackup(): Promise<{ sizeBytes: number; fileName: string
 
     const form = new FormData();
     form.append('chat_id', chatId);
-    form.append('caption', `💾 Бэкап normno.com · ${new Date().toLocaleString('ru-RU')} · ${(stat.size / 1024).toFixed(0)} КБ`);
+    form.append('caption', `💾 Бэкап ${config.siteHost} · ${new Date().toLocaleString('ru-RU')} · ${(stat.size / 1024).toFixed(0)} КБ`);
     form.append('document', new Blob([fs.readFileSync(archivePath)], { type: 'application/gzip' }), fileName);
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, { method: 'POST', body: form });

@@ -10,7 +10,7 @@ async function gh<T>(path: string, accept = 'application/vnd.github+json'): Prom
   const headers: Record<string, string> = {
     Accept: accept,
     'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'normno-ru-site',
+    'User-Agent': 'profile-site',
   };
   if (config.githubToken) headers.Authorization = `Bearer ${config.githubToken}`;
   const res = await fetch(`${API}${path}`, { headers });
@@ -82,7 +82,7 @@ async function syncContributions(): Promise<void> {
     headers: {
       Authorization: `Bearer ${config.githubToken}`,
       'Content-Type': 'application/json',
-      'User-Agent': 'normno-ru-site',
+      'User-Agent': 'profile-site',
     },
     body: JSON.stringify({ query, variables: { login: config.githubUsername } }),
   });

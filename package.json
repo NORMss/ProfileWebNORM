@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "normno.com — сайт-портфолио: Astro + Svelte, SQLite, синк GitHub/Telegram, виджет Spotify",
+  "description": "Сайт-портфолио: Astro + Svelte, SQLite, синк GitHub/Telegram, виджет Spotify",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",

@@ -155,7 +155,7 @@ Svelte остался только в админке. Опрос ставитс�
 
 ### Выбор языка без редиректа
 
-Браузер с `Accept-Language: en` на `https://normno.com/` получал 302 на `/en`
+Браузер с `Accept-Language: en` на `https://example.com/` получал 302 на `/en`
 и только потом страницу — лишний поход на сервер перед первой отрисовкой,
 ~0,6 с на мобильном профиле Lighthouse («Avoid multiple page redirects»).
 Тот же редирект получал и сам PageSpeed Insights: его Chrome ходит с

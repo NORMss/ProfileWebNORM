@@ -8,7 +8,7 @@ const RU = {
   'nav.home': 'Главная',
   'nav.projects': 'Проекты',
   'nav.pubs': 'Публикации',
-  'nav.brandTitle': 'normno.com — на главную',
+  'nav.brandTitle': '{site} — на главную',
 
   'site.description': 'Портфолио NORMno: проекты на Kotlin Multiplatform, публикации и релизы.',
   'site.author': 'NORMno',
@@ -103,7 +103,7 @@ const EN: Record<StringKey, string> = {
   'nav.home': 'Home',
   'nav.projects': 'Projects',
   'nav.pubs': 'Blog',
-  'nav.brandTitle': 'normno.com — home',
+  'nav.brandTitle': '{site} — home',
 
   'site.description': "NORMno's portfolio: Kotlin Multiplatform projects, posts and releases.",
   'site.author': 'NORMno',

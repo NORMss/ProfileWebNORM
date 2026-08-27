@@ -56,6 +56,7 @@ const {
 } = Astro.props;
 
 const site = config.siteUrl.replace(/\/$/, '');
+const siteHost = config.siteHost;
 const canonical = absoluteUrl(path, lang);
 const langLinks = alternates(path);
 const imageUrl = image.startsWith('http') ? image : `${site}${image}`;
@@ -133,7 +134,7 @@ const nav = [
         !hideNav && (
           <div class="nav-wrap">
             <nav class="glass">
-              <button id="brand-smile" class="brand" type="button" aria-label="normno.com" title="normno.com">
+              <button id="brand-smile" class="brand" type="button" aria-label={siteHost} title={siteHost}>
                 {/* Фирменный смайл (Figma L8ByEhwaRWe2B7Hnpd16AD, Group 1): глаза «((» и улыбка */}
                 <svg viewBox="0 0 65 78" width="26" height="31" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" aria-hidden="true">
                   <path class="smile-eye" d="M21 4 C 14.5 19, 14.5 35, 21 48" />

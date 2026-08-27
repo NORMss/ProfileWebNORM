@@ -7,7 +7,7 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 <img width="1192" height="931" alt="Screenshot 2026-08-14 at 01 21 09" src="https://github.com/user-attachments/assets/67235b19-f2a1-408e-b7c2-e96ad2779937" />
 
 **Стек:** Astro + Svelte-островки · Node 22 · SQLite (Drizzle ORM) · Caddy · Docker Compose.
-Рассчитан на слабый VPS (512 МБ RAM): всё максимально статично и кешировано, один процесс,
+Рассчитан на слабый VPS: всё максимально статично и кешировано, один процесс,
 сайт **никогда** не ходит в GitHub/Telegram в момент запроса пользователя.
 
 ## Возможности
@@ -120,7 +120,7 @@ backdrop-blur стекло, ripple-эффект на кликабельных э
 
 1. `/admin*` отвечает **404** на основном домене — и в приложении (middleware проверяет `Host`),
    и в Caddy (запросы к `/admin*` на основном домене вообще не проксируются);
-2. админка открывается только с поддомена из `ADMIN_HOST` (например `admin.normno.com`)
+2. админка открывается только с поддомена из `ADMIN_HOST` (например `admin.example.com`)
    и закрыта **Basic Auth** (`ADMIN_USER` / `ADMIN_PASS` из `.env`);
 3. в публичной навигации ссылки на админку нет, `robots.txt` и `X-Robots-Tag` запрещают индексацию.
 
@@ -144,7 +144,7 @@ npm run dev
 Полное руководство — **[docs/DEPLOY.md](docs/DEPLOY.md)**: подключение интеграций,
 бэкапы и восстановление, обновление, разбор типичных проблем. Кратко:
 
-1. Направьте DNS **A-записи** `normno.com` и `admin.normno.com` на IP сервера.
+1. Направьте DNS **A-записи** `example.com` и `admin.example.com` на IP сервера.
 2. Установите Docker (`curl -fsSL https://get.docker.com | sh`), освободите порты 80/443.
 3. Разверните:
 
@@ -198,7 +198,7 @@ npm run dev
 
 1. Создайте приложение на https://developer.spotify.com/dashboard.
 2. В его настройках добавьте **Redirect URI** — адрес админки:
-   `https://admin.normno.com/admin/spotify/callback`
+   `https://admin.example.com/admin/spotify/callback`
    (подставьте свой `ADMIN_DOMAIN`; точное значение показано в админке).
 3. Впишите `SPOTIFY_CLIENT_ID` и `SPOTIFY_CLIENT_SECRET` в `.env`,
    перезапустите: `docker compose up -d --build`.

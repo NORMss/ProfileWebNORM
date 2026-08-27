@@ -1,9 +1,9 @@
-# Деплой normno.com на VPS
+# Деплой сайта на VPS
 
 Пошаговое руководство: от чистого сервера до работающего сайта со всеми
 интеграциями (GitHub, Telegram, Spotify, бэкапы).
 
-Ориентир по ресурсам: 1 vCPU / 512 МБ RAM / 10 ГБ диска достаточно.
+Минимальные требования: 1 vCPU / 512 МБ RAM / 10 ГБ диска.
 В работе — два контейнера: `app` (Node 22, ~120 МБ RAM) и `caddy` (~20 МБ).
 
 ---
@@ -13,7 +13,7 @@
 | Обязательно | Опционально (можно добавить позже) |
 | --- | --- |
 | VPS с Docker | GitHub PAT — лимиты API и тепловая карта |
-| Два домена: `normno.com` и `admin.normno.com` | Telegram-бот — импорт/публикация постов, бэкапы |
+| Два домена: `example.com` и `admin.example.com` | Telegram-бот — импорт/публикация постов, бэкапы |
 | Пароль для админки | Spotify-приложение — виджет «сейчас играет» |
 
 Без опциональных ключей сайт работает: проекты тянутся из публичного API
@@ -24,19 +24,19 @@ GitHub, виджет Spotify и тепловая карта просто не п
 Заведите две **A-записи** на IP сервера:
 
 ```
-normno.com        A    203.0.113.10
-admin.normno.com  A    203.0.113.10
+example.com        A    203.0.113.10
+admin.example.com  A    203.0.113.10
 ```
 
-Проверка: `dig +short normno.com` и `dig +short admin.normno.com` должны
+Проверка: `dig +short example.com` и `dig +short admin.example.com` должны
 вернуть IP сервера. Поддомен админки нужен обязательно — на основном домене
 `/admin` отдаёт 404 (см. [раздел 8](#8-безопасность)).
 
-Каждый домен и поддомен — **отдельная A-запись**: wildcard `*.normno.com`
+Каждый домен и поддомен — **отдельная A-запись**: wildcard `*.example.com`
 по умолчанию никто не заводит, а без записи браузер отдаст
 `ERR_NAME_NOT_RESOLVED` ещё до того, как запрос дойдёт до сервера.
 
-Дополнительные домены (старый `normno.ru`, `www`) — см. [2.1](#21-дополнительные-домены-алиасы).
+Дополнительные домены (старый `example.ru`, `www`) — см. [2.1](#21-дополнительные-домены-алиасы).
 
 ### 2.1. Дополнительные домены (алиасы)
 
@@ -46,18 +46,18 @@ admin.normno.com  A    203.0.113.10
 1. **A-записи** каждого домена → тот же IP сервера:
 
    ```
-   normno.ru        A    203.0.113.10
-   www.normno.com   A    203.0.113.10
+   example.ru        A    203.0.113.10
+   www.example.com   A    203.0.113.10
    ```
 
-   Дождитесь обновления DNS: `dig +short normno.ru @1.1.1.1` должен вернуть IP
+   Дождитесь обновления DNS: `dig +short example.ru @1.1.1.1` должен вернуть IP
    сервера. Пока запись не резолвится (или ведёт на старый хостинг), Let's Encrypt
    не подтвердит владение доменом, и в логах caddy будет бесконечный ретрай ACME.
 
 2. В `.env` перечислите домены через пробел:
 
    ```env
-   ALIAS_DOMAINS=normno.ru www.normno.ru www.normno.com
+   ALIAS_DOMAINS=example.ru www.example.ru www.example.com
    ```
 
 3. Примените конфиг:
@@ -65,7 +65,7 @@ admin.normno.com  A    203.0.113.10
    ```bash
    docker compose up -d          # пересоздаст только caddy
    docker compose logs caddy | grep -i "certificate obtained"
-   curl -sI https://normno.ru | head -1     # HTTP/2 301
+   curl -sI https://example.ru | head -1     # HTTP/2 301
    ```
 
 Домены из `ALIAS_DOMAINS` отдают **301** на канонический `SITE_DOMAIN` с
@@ -81,17 +81,17 @@ admin.normno.com  A    203.0.113.10
 которые уходят наружу:
 
 ```env
-SITE_URL=https://normno.com
-SITE_DOMAIN=normno.com
-ALIAS_DOMAINS=normno.ru www.normno.ru www.normno.com
-ADMIN_DOMAIN=admin.normno.com
-ADMIN_HOST=admin.normno.com
+SITE_URL=https://example.com
+SITE_DOMAIN=example.com
+ALIAS_DOMAINS=example.ru www.example.ru www.example.com
+ADMIN_DOMAIN=admin.example.com
+ADMIN_HOST=admin.example.com
 ```
 
 `ADMIN_HOST` обязан совпадать с `ADMIN_DOMAIN`: Caddy проксирует админку по
 первому, приложение сверяет `Host` со вторым — при расхождении админка отдаст
-404. Тогда же: A-запись `admin.normno.com`, новый Redirect URI
-`https://admin.normno.com/admin/spotify/callback` в приложении Spotify (старый
+404. Тогда же: A-запись `admin.example.com`, новый Redirect URI
+`https://admin.example.com/admin/spotify/callback` в приложении Spotify (старый
 можно удалить после проверки) и `docker compose up -d` — `SITE_URL`
 подставляется в RSS и в ссылки постов, публикуемых в Telegram. Пересборка не
 нужна: значения читаются из окружения в рантайме.
@@ -177,11 +177,11 @@ nano .env
 Минимум для первого запуска:
 
 ```env
-SITE_URL=https://normno.com
-SITE_DOMAIN=normno.com
-ADMIN_DOMAIN=admin.normno.com
-ADMIN_HOST=admin.normno.com
-ADMIN_USER=admin
+SITE_URL=https://example.com
+SITE_DOMAIN=example.com
+ADMIN_DOMAIN=admin.example.com
+ADMIN_HOST=admin.example.com
+ADMIN_USER=<своё имя, не admin>
 ADMIN_PASS=длинный-случайный-пароль
 GITHUB_USERNAME=NORMss
 TZ=UTC
@@ -198,7 +198,7 @@ docker compose up -d --build
 
 ```bash
 docker compose logs caddy | grep -i "certificate obtained"
-curl -sI https://normno.com | head -1
+curl -sI https://example.com | head -1
 ```
 
 Через несколько секунд после старта приложение делает первый синк с GitHub —
@@ -246,7 +246,7 @@ Personal access tokens → Tokens (classic) → Generate new token, отметь
 ### 5.3. Spotify (виджет «сейчас играет»)
 
 1. Создайте приложение на https://developer.spotify.com/dashboard.
-2. Добавьте **Redirect URI**: `https://admin.normno.com/admin/spotify/callback`
+2. Добавьте **Redirect URI**: `https://admin.example.com/admin/spotify/callback`
    (точная строка показана в админке).
 3. `SPOTIFY_CLIENT_ID` и `SPOTIFY_CLIENT_SECRET` → в `.env`, `docker compose up -d`.
 4. Админка → «Обо мне и ссылки» → **«♫ Подключить Spotify»**.
@@ -285,7 +285,7 @@ YANDEX_VERIFICATION=<content= мета-тега из Вебмастера>
 
 ## 6. Наполнение сайта
 
-Всё делается в админке `https://admin.normno.com/admin` (Basic Auth):
+Всё делается в админке `https://admin.example.com/admin` (Basic Auth):
 
 | Вкладка | Что настраивается |
 | --- | --- |
@@ -305,7 +305,7 @@ data/
 ```
 
 **Автоматически:** если задан `TELEGRAM_BACKUP_CHAT_ID`, бот ежедневно
-в 04:30 (по `TZ` сервера) присылает `normno-backup-<дата>.tar.gz` с БД и
+в 04:30 (по `TZ` сервера) присылает `site-backup-<дата>.tar.gz` с БД и
 файлами в личный чат. Кнопка ручного бэкапа — в админке.
 
 **Вручную:**
@@ -348,7 +348,7 @@ docker compose up -d --build
 | Симптом | Причина и решение |
 | --- | --- |
 | `curl: (35) tlsv1 alert internal error`, сертификат не выдаётся | На 80/443 сидит другой сервис. Проверьте `ss -tlnp \| grep -E ':(80\|443)'` и `docker compose ps` — контейнер `caddy` будет в Exited. Освободите порты и `docker compose up -d` |
-| Сертификат не выдаётся, порты свободны | DNS ещё не обновился (`dig +short normno.com`) или провайдер блокирует 80/443 |
+| Сертификат не выдаётся, порты свободны | DNS ещё не обновился (`dig +short example.com`) или провайдер блокирует 80/443 |
 | Новый домен из `ALIAS_DOMAINS` открывается без HTTPS или с чужим сертификатом | Сертификат ещё не выпущен: `docker compose logs caddy \| grep -i acme` покажет причину — чаще всего A-запись домена смотрит не на этот сервер |
 | `server block without any key is global configuration` в логах caddy | В `.env` пустой `ALIAS_DOMAINS`, а compose запускается не из каталога проекта (подстановка `${ALIAS_DOMAINS:-alias.localhost}` не сработала). Запускайте `docker compose` из корня репозитория или уберите строку `ALIAS_DOMAINS=` из `.env` |
 | Пустой список проектов | Проверьте `GITHUB_USERNAME`, нажмите «Синхронизировать сейчас», смотрите `docker compose logs app \| grep sync` |
@@ -370,7 +370,7 @@ docker compose restart app             # перезапуск без перес�
 
 ## 12. Медленная сборка
 
-Нормальное время на VPS 1 vCPU / 512 МБ: **первая сборка 3–6 минут**,
+Нормальное время на минимальной конфигурации: **первая сборка 3–6 минут**,
 последующие (если менялся только код) — **40–90 секунд**.
 
 Сначала посмотрите, на каком шаге стоит сборка:
