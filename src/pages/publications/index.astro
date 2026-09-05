@@ -27,6 +27,7 @@ const listHtml = posts
       cover: p.coverThumb || p.coverUrl,
       badge: p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin'),
       telegram: p.source === 'telegram',
+      tgSynced: p.tgMessageId !== null,
       tgTitle: t(lang, 'pubs.tgSynced'),
       date: formatDate(p.createdAt, lang),
     }),
@@ -69,7 +70,6 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 >
   <main>
     <h1>{t(lang, 'pubs.heading')}</h1>
-    <p class="lead">{t(lang, 'pubs.lead')}</p>
     <div class="list" id="pub-list" set:html={listHtml} />
     {posts.length === 0 && <p class="empty">{t(lang, 'pubs.empty')}</p>}
     {
@@ -153,15 +153,10 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     padding: clamp(26px, 5.5vw, 48px) clamp(14px, 4vw, 24px) 80px;
   }
   h1 {
-    margin: 0 0 8px;
+    margin: 0 0 26px;
     font-size: clamp(24px, 6vw, 30px);
     font-weight: 800;
     letter-spacing: -0.5px;
-  }
-  .lead {
-    margin: 0 0 26px;
-    font-size: 14.5px;
-    color: var(--fg-55);
   }
   .empty {
     margin: 0;

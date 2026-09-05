@@ -35,6 +35,7 @@ export const GET: APIRoute = async ({ url }) => {
         cover: p.coverThumb || p.coverUrl,
         badge: p.source === 'telegram' ? t(lang, 'pubs.badgeTelegram') : t(lang, 'pubs.badgeAdmin'),
         telegram: p.source === 'telegram',
+        tgSynced: p.tgMessageId !== null,
         tgTitle: t(lang, 'pubs.tgSynced'),
         date: formatDate(p.createdAt, lang),
       }),
