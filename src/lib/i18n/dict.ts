@@ -26,8 +26,8 @@ const RU = {
     'Разработка приложений на Kotlin Multiplatform: проекты с исходниками и релизами, публикации и заметки NORMno.',
   'home.avatarAlt': 'Фото NORMno',
   'home.updates': 'Последние обновления',
-  'home.updatesSub': 'releases · GitHub',
-  'home.updatesEmpty': 'Пока пусто — релизы появятся после первого синка с GitHub.',
+  'home.updatesSub': 'commits · GitHub',
+  'home.updatesEmpty': 'Пока пусто — проекты появятся после первого синка с GitHub.',
   'home.posts': 'Последние публикации',
   'home.allPosts': 'все ›',
 
@@ -120,8 +120,8 @@ const EN: Record<StringKey, string> = {
     'Kotlin Multiplatform app development: open-source projects with releases, plus posts and notes by NORMno.',
   'home.avatarAlt': 'Photo of NORMno',
   'home.updates': 'Latest updates',
-  'home.updatesSub': 'releases · GitHub',
-  'home.updatesEmpty': 'Nothing here yet — releases show up after the first GitHub sync.',
+  'home.updatesSub': 'commits · GitHub',
+  'home.updatesEmpty': 'Nothing here yet — projects show up after the first GitHub sync.',
   'home.posts': 'Latest posts',
   'home.allPosts': 'all ›',
 

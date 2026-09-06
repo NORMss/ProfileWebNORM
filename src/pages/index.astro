@@ -4,7 +4,7 @@ import Icon from '../components/Icon.astro';
 import Heatmap from '../components/Heatmap.astro';
 import SpotifyWidget from '../components/SpotifyWidget.astro';
 import { getAbout, getAboutHtml, getAvatarUrl, getSetting } from '../lib/settings';
-import { getLatestUpdates, getPublishedPostCards, repoImage } from '../lib/queries';
+import { getPublishedPostCards, getRecentlyUpdatedRepoCards, repoImage } from '../lib/queries';
 import { formatCount, formatDate } from '../lib/format';
 import { getNowPlaying } from '../lib/spotify';
 import { localePath } from '../lib/i18n';
@@ -15,17 +15,14 @@ import { imageOrigins, personJsonLd, webSiteJsonLd } from '../lib/seo';
 const lang = Astro.locals.lang;
 const about = getAbout();
 const avatarUrl = getAvatarUrl();
-const updates = getLatestUpdates(3);
+const updates = getRecentlyUpdatedRepoCards(3);
 const posts = getPublishedPostCards(3);
 const nowPlaying = await getNowPlaying();
 
 // Перевод главной: блок «обо мне», описания проектов и карточки публикаций.
 // Всё берётся из кеша, а недостающее переводится один раз при первом заходе.
 const aboutHtml = await localizeAbout(getAboutHtml(), lang);
-const repoDescriptions = await localizeRepoDescriptions(
-  updates.map((u) => u.repo),
-  lang,
-);
+const repoDescriptions = await localizeRepoDescriptions(updates, lang);
 const postCards = await localizePostCards(posts, lang);
 
 let contributions: { total: number; weeks: (readonly [string, number])[][] } | null = null;
@@ -49,9 +46,9 @@ const links = [
 
 const jsonLd = [personJsonLd(lang, about), webSiteJsonLd(lang)];
 
-// Миниатюры релизов живут на opengraph.githubassets.com, обложка трека — на CDN
+// Миниатюры проектов живут на opengraph.githubassets.com, обложка трека — на CDN
 // Spotify: соединение с ними открываем из <head>, не дожидаясь встречи с <img>.
-const preconnect = imageOrigins([...updates.map((u) => repoImage(u.repo, 'thumb')), nowPlaying.track?.coverUrl]);
+const preconnect = imageOrigins([...updates.map((r) => repoImage(r, 'thumb')), nowPlaying.track?.coverUrl]);
 
 Astro.response.headers.set('Cache-Control', 'public, max-age=60');
 ---
@@ -112,19 +109,19 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
             )
           }
           {
-            updates.map((u) => (
-              <a class="update glass-item" href={localePath(`/projects/${u.repo.name}`, lang)} data-ripple>
-                <img class="thumb" src={repoImage(u.repo, 'thumb')} alt="" width="52" height="52" loading="lazy" />
+            updates.map((r) => (
+              <a class="update glass-item" href={localePath(`/projects/${r.name}`, lang)} data-ripple>
+                <img class="thumb" src={repoImage(r, 'thumb')} alt="" width="52" height="52" loading="lazy" />
                 <div class="update-meta">
                   <div class="update-title">
-                    <strong>{u.repo.name}</strong>
-                    <span class="tag">{u.tag}</span>
+                    <strong>{r.name}</strong>
+                    {r.latestTag && <span class="tag">{r.latestTag}</span>}
                   </div>
-                  <div class="update-desc">{u.name || u.notes || repoDescriptions.get(u.repo.id) || u.repo.description}</div>
+                  <div class="update-desc">{repoDescriptions.get(r.id) || r.description}</div>
                 </div>
                 <div class="stats">
-                  <span>★ {formatCount(u.repo.stars, lang)}</span>
-                  <span>↓ {formatCount(u.repo.totalDownloads, lang)}</span>
+                  <span>★ {formatCount(r.stars, lang)}</span>
+                  <span>↓ {formatCount(r.totalDownloads, lang)}</span>
                 </div>
                 <span class="chevron">›</span>
               </a>

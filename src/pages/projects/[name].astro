@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import DownloadMenu from '../../components/DownloadMenu.astro';
+import Icon from '../../components/Icon.astro';
 import { getRepoByName, getReleases, getAssets, getIssues, repoImage } from '../../lib/queries';
 import { formatCount, formatDate } from '../../lib/format';
 import { localePath } from '../../lib/i18n';
@@ -73,19 +74,24 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
             {repo.latestTag && <span class="tag">{repo.latestTag}</span>}
           </div>
         </div>
-        {
-          latestAssets.length > 0 ? (
-            <DownloadMenu assets={latestAssets} label={t(lang, 'download.latest')} variant="accent" lang={lang} />
-          ) : repo.latestAssetUrl ? (
-            <a class="btn-accent" href={repo.latestAssetUrl} data-ripple>
-              ⤓ {t(lang, 'download.latest')}
-            </a>
-          ) : (
-            <a class="btn-ghost" href={repo.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
-              {t(lang, 'projects.openGithub')}
-            </a>
-          )
-        }
+        <div class="actions">
+          {
+            latestAssets.length > 0 ? (
+              <DownloadMenu assets={latestAssets} label={t(lang, 'download.latest')} variant="accent" lang={lang} />
+            ) : (
+              repo.latestAssetUrl && (
+                <a class="btn-accent" href={repo.latestAssetUrl} data-ripple>
+                  ⤓ {t(lang, 'download.latest')}
+                </a>
+              )
+            )
+          }
+          {/* Ссылка на GitHub нужна всегда: у проекта с релизами исходники ищут так же часто, как файлы */}
+          <a class="btn-ghost" href={repo.htmlUrl} target="_blank" rel="noopener noreferrer" data-ripple>
+            <Icon name="github" size={17} />
+            {t(lang, 'projects.openGithub')}
+          </a>
+        </div>
       </div>
 
       {content.readmeHtml && <h2 class="readme-head">{t(lang, 'projects.readme')}</h2>}
@@ -201,7 +207,14 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=60');
     color: var(--green);
     font-family: ui-monospace, Menlo, monospace;
   }
-  .btn-accent {
+  .actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn-accent,
+  .actions .btn-ghost {
     font-size: clamp(13.5px, 3.8vw, 15px);
     white-space: nowrap;
     flex: none;
