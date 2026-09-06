@@ -88,6 +88,21 @@ export function getVisibleRepoCards(category?: 'hard' | 'vibe'): RepoCard[] {
   return db.select(REPO_CARD_COLUMNS).from(schema.repos).where(cond).orderBy(desc(schema.repos.pushedAt)).all();
 }
 
+/**
+ * Проекты с самыми свежими изменениями — блок «Последние обновления» на главной.
+ * Сортировка по pushed_at, а не по дате релиза: в списке должно быть видно, где
+ * работа идёт прямо сейчас, даже если релиза там ещё не было.
+ */
+export function getRecentlyUpdatedRepoCards(limit = 3): RepoCard[] {
+  return db
+    .select(REPO_CARD_COLUMNS)
+    .from(schema.repos)
+    .where(eq(schema.repos.visible, 1))
+    .orderBy(desc(schema.repos.pushedAt))
+    .limit(limit)
+    .all();
+}
+
 export function getAllRepos(): Repo[] {
   return db.select().from(schema.repos).orderBy(desc(schema.repos.pushedAt)).all();
 }

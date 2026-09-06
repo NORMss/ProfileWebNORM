@@ -30,8 +30,10 @@ export interface PostCardData {
   /** URL миниатюры обложки; '' — карточка без картинки */
   cover: string;
   badge: string;
-  /** telegram — пост приехал из канала */
+  /** telegram — пост приехал из канала: от этого зависит только цвет бейджа */
   telegram: boolean;
+  /** Пост есть в канале: импортирован оттуда или отправлен туда из админки — рисуем самолёт */
+  tgSynced: boolean;
   tgTitle: string;
   date: string;
 }
@@ -44,7 +46,7 @@ export function postCardHtml(p: PostCardData): string {
   const cover = p.cover
     ? `<div class="pub-cover"><img src="${esc(p.cover)}" alt="" width="336" height="252" loading="lazy" decoding="async"></div>`
     : '';
-  const plane = p.telegram
+  const plane = p.tgSynced
     ? `<span class="pub-plane" title="${esc(p.tgTitle)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="${TELEGRAM_PATH}"/></svg></span>`
     : '';
   return (
