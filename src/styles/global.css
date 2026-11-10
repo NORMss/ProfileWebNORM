@@ -6,6 +6,11 @@
      подложки — самая дорогая операция отрисовки, а на телефоне разница
      между 28 и 12 пикселями почти не читается. */
   --glass-blur: 28px;
+  --holiday-red: #bf616a;
+  --holiday-green: #a3be8c;
+  --holiday-gold: #ebcb8b;
+  --holiday-blue: #88c0d0;
+  --snow-color: #e5e9f0;
   --bg: #07080f;
   --fg: #f2f3f8;
   --fg-65: rgba(255, 255, 255, 0.65);
@@ -73,6 +78,7 @@
 
 @media (prefers-color-scheme: light) {
   :root {
+    --snow-color: #55718b;
     --bg: #f2ead9;
     --fg: #3a3226;
     /* Приглушённые оттенки на светлой теме считаются от основного цвета текста
@@ -200,7 +206,7 @@ textarea {
   outline: none;
 }
 :focus-visible {
-  outline: 2px solid rgba(157, 183, 255, 0.6);
+  outline: 2px solid var(--link);
   outline-offset: 2px;
 }
 

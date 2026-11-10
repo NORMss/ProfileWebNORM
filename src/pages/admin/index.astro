@@ -4,6 +4,7 @@ import AdminApp from '../../components/admin/AdminApp.svelte';
 import { getAllRepos, getAllPosts } from '../../lib/queries';
 import { getAbout, getAvatarUrl, getSetting } from '../../lib/settings';
 import { config } from '../../lib/config';
+import { parseAppearance } from '../../lib/appearance';
 
 const repos = getAllRepos().map((r) => {
   let readmeImages: string[] = [];
@@ -66,6 +67,7 @@ Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
       {about}
       {avatarUrl}
       {projectsSort}
+      appearance={parseAppearance(getSetting('appearance'))}
       {spotify}
       {lastSync}
       {tgLastImport}
