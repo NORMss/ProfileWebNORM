@@ -1,5 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import AppearancePanel from './AppearancePanel.svelte';
+  import type { Appearance } from '../../lib/appearance';
 
   interface RepoRow {
     id: number;
@@ -33,6 +35,7 @@
     about: initialAbout,
     avatarUrl: initialAvatarUrl,
     projectsSort: initialProjectsSort,
+    appearance: initialAppearance,
     spotify,
     lastSync,
     tgLastImport,
@@ -42,12 +45,13 @@
     about: About;
     avatarUrl: string;
     projectsSort: string;
+    appearance: Appearance;
     spotify: { appConfigured: boolean; connected: boolean; redirectUri: string };
     lastSync: string;
     tgLastImport: { at: string; count: number } | null;
   }>();
 
-  let tab = $state<'projects' | 'about' | 'posts' | 'translate'>('projects');
+  let tab = $state<'projects' | 'about' | 'posts' | 'translate' | 'appearance'>('projects');
   let repos = $state<RepoRow[]>(initialRepos);
   let posts = $state<PostRow[]>(initialPosts);
   let about = $state<About>({ ...initialAbout });
@@ -68,6 +72,7 @@
   let sendingTgId = $state<number | null>(null);
 
   let projectsSort = $state(initialProjectsSort);
+  let appearance = $state<Appearance>({ ...initialAppearance });
 
   async function saveProjectsSort() {
     try {
@@ -641,13 +646,16 @@
   <button class="tab" class:active={tab === 'about'} onclick={() => (tab = 'about')}>Обо мне и ссылки</button>
   <button class="tab" class:active={tab === 'posts'} onclick={() => (tab = 'posts')}>Публикации</button>
   <button class="tab" class:active={tab === 'translate'} onclick={openTranslate}>Переводы</button>
+  <button class="tab" class:active={tab === 'appearance'} onclick={() => (tab = 'appearance')}>Оформление</button>
 </div>
 
 {#if toast}
   <div class="toast">{toast}</div>
 {/if}
 
-{#if tab === 'projects'}
+{#if tab === 'appearance'}
+  <AppearancePanel initial={appearance} onSaved={(value) => { appearance = value; }} />
+{:else if tab === 'projects'}
   <section class="panel">
     <div class="panel-head">
       <h2>Репозитории</h2>
